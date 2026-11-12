@@ -246,7 +246,7 @@ const DEFAULT = {
   settings: { nameA: 'You', nameB: 'Partner', me: 'A', startDate: '', babyName: '', babyDob: '', theme: 'auto', zone: 'WLY01', reminders: {bills: true, events: true, tasks: true, vaccines: true, who: 'both'} },
   tasks: [], restock: [], restockCats: ['Pantry', 'Baby', 'Household'],
   events: [], bills: [], growth: [], vaccines: {}, milestones: {}, memories: [],
-  notes: [], recipes: [], wishes: [], goals: [], expenses: [], messages: [], babylog: [], sleepStart: null, settlements: [], activity: [], meals: {}, scheduled: [], cars: [], services: [], contacts: [], watch: [], activities: []
+  notes: [], recipes: [], wishes: [], goals: [], expenses: [], messages: [], babylog: [], sleepStart: null, settlements: [], activity: [], meals: {}, scheduled: [], cars: [], services: [], contacts: [], watch: [], activities: [], karaoke: []
 };
 const DB = {
   data: null,
@@ -644,6 +644,7 @@ function vSearch() {
   D().recipes.forEach(x => (hit(x.name) || x.ingredients.some(hit)) && r.push(['Recipe', x.name, `st.restockView='recipes';go('restock');recipeView('${x.id}')`]));
   D().wishes.forEach(x => hit(x.name) && r.push(['Wish', x.name, "go('money','Wishlist')"]));
   (D().watch || []).forEach(x => hit(x.title) && r.push(['To watch', x.title, `st.planView='watch';go('calendar');watchSheet('${x.id}')`]));
+  (D().karaoke || []).forEach(x => (hit(x.title) || hit(x.artist || '')) && r.push(['Karaoke', x.title, `st.planView='karaoke';go('calendar');kSheet('${x.id}')`]));
   (D().activities || []).forEach(x => hit(x.title) && r.push(['Activity', x.title, `st.planView='act';go('calendar');actSheet('${x.id}')`]));
   D().memories.forEach(x => hit(x.title) && r.push(['Memory', x.title, "go('more','Memories')"]));
   D().expenses.forEach(x => (hit(x.note) || hit(x.cat)) && r.push(['Expense · ' + RM(x.amount), x.note || x.cat, "go('money','Expenses')"]));
@@ -1962,8 +1963,8 @@ function choreSetSheet(kid) { const k = kidById(kid);
 /* =================== ACTIVITIES & CALENDAR: TO WATCH + ACTIVITIES =================== */
 function vCalendar() {
   const v = st.planView || 'cal';
-  const chips = `<div class="chips" style="margin-bottom:12px">${[['cal', '📅 Calendar'], ['watch', '🍿 Watch'], ['act', '🎯 Activities']].map(([k, l]) => `<button class="chip ${v === k ? 'on' : ''}" onclick="st.planView='${k}';render()">${l}</button>`).join('')}</div>`;
-  return `<h1 style="font-size:30px">Activities & Calendar</h1>` + chips + (v === 'watch' ? vWatch() : v === 'act' ? vActs() : vCalOnly());
+  const chips = `<div class="chips" style="margin-bottom:12px">${[['cal', '📅 Calendar'], ['watch', '🍿 Watch'], ['act', '🎯 Activities'], ['karaoke', '🎤 Karaoke']].map(([k, l]) => `<button class="chip ${v === k ? 'on' : ''}" onclick="st.planView='${k}';render()">${l}</button>`).join('')}</div>`;
+  return `<h1 style="font-size:30px">Activities & Calendar</h1>` + chips + (v === 'watch' ? vWatch() : v === 'act' ? vActs() : v === 'karaoke' ? vKaraoke() : vCalOnly());
 }
 const WTYPES = [['Movie', '🎬'], ['Series', '📺'], ['Video', '▶️'], ['Documentary', '🌍'], ['Anime', '🍥']];
 const WHERE = ['Netflix', 'Disney+ Hotstar', 'Prime Video', 'YouTube', 'Viu', 'iQIYI', 'Apple TV+', 'HBO Max', 'Astro', 'Cinema', 'Other'];
@@ -2048,6 +2049,44 @@ function pickAct() { const l = D().activities.filter(a => !a.done); const a = l[
 function planSheet(title, eid) { const ex = D().events.find(e => e.id === eid);
   sheet(`<h2>Plan it</h2><p class="muted" style="margin-top:-6px">${esc(title)}</p><div class="grid2">${field('Date', `<input type="date" id="pd" value="${ex ? ex.date : todayISO()}">`)}${field('Time', `<input type="time" id="ph" value="${ex ? ex.time || '' : '21:00'}">`)}</div>
   <button class="btn block" onclick="if(!val('pd'))return toast('Pick a date');D().events=D().events.filter(e=>e.id!=='${eid}');D().events.push({id:'${eid}',title:'${jq(title)}',date:val('pd'),time:val('ph'),by:S().me});DB.save();closeSheet();render();toast('Added to Calendar')">Add to Calendar</button>`); }
+
+
+/* =================== KARAOKE SONG LIST =================== */
+const KLANG = ['English', 'Malay', 'Indonesian', 'Chinese', 'Korean', 'Japanese', 'Tamil', 'Other'];
+const kWho = s => s.who === 'duet' ? '👫 Duet' : s.who === 'A' || s.who === 'B' ? '🎤 ' + whoName(s.who) : '🎤 Anyone';
+const ytKaraoke = s => 'https://www.youtube.com/results?search_query=' + encodeURIComponent(`${s.title} ${s.artist || ''} karaoke`);
+function vKaraoke() {
+  D().karaoke = D().karaoke || []; const all = D().karaoke, f = st.kFilter || 'all', q = (st.kq || '').toLowerCase();
+  const FIL = [['all', 'All'], ['A', whoName('A')], ['B', whoName('B')], ['duet', 'Duets'], ['fav', '⭐ Favourites']];
+  const l = all.filter(s => (f === 'all' || (f === 'fav' ? s.fav : s.who === f)) && (!q || (s.title + ' ' + (s.artist || '')).toLowerCase().includes(q)))
+    .sort((a, b) => (b.fav ? 1 : 0) - (a.fav ? 1 : 0) || a.title.localeCompare(b.title));
+  return `<p class="sub">Our songs for karaoke night. Tap 🎤 after you sing one.</p>
+  <div class="chips" style="margin-bottom:10px">${FIL.map(([k, lb]) => `<button class="chip sm ${f === k ? 'on' : ''}" onclick="st.kFilter='${k}';render()">${esc(lb)}<span class="n">${k === 'all' ? all.length : all.filter(s => k === 'fav' ? s.fav : s.who === k).length}</span></button>`).join('')}</div>
+  ${all.length > 6 ? `<input placeholder="Search songs or singers" value="${esc(st.kq || '')}" style="margin-bottom:10px" oninput="st.kq=this.value;render();const i=document.querySelector('#app input');i.focus();i.setSelectionRange(99,99)">` : ''}
+  ${all.length > 2 ? `<button class="btn soft block" style="margin-bottom:12px" onclick="kSetlist()">🎲 Make tonight's setlist</button>` : ''}
+  <div class="list">${l.map(s => `<div class="item" onclick="kSheet('${s.id}')"><button class="tlink" style="font-size:22px;padding:0 2px" onclick="event.stopPropagation();kFav('${s.id}')" aria-label="Favourite">${s.fav ? '⭐' : '☆'}</button>
+    <div class="grow"><div class="t">${esc(s.title)}</div><div class="s">${[s.artist, kWho(s), s.lang, s.sung ? `sung ${s.sung}×` : ''].filter(Boolean).map(esc).join(' · ')}</div></div>
+    <a class="btn soft sm" href="${ytKaraoke(s)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="Find on YouTube">▶</a>
+    <button class="btn soft sm" onclick="event.stopPropagation();kSang('${s.id}')" aria-label="We sang it">🎤</button></div>`).join('')
+    || `<div class="empty">${all.length ? 'No songs match.' : 'No songs yet. Add the ones you love to sing, like Rasa Sayang, Perfect, or Kau Ilhamku.'}</div>`}</div>
+  <button class="fab" onclick="kSheet()">+ Add song</button>`;
+}
+function kSheet(id) { const s = (D().karaoke || []).find(x => x.id === id) || {title: '', artist: '', who: st.kFilter === 'A' || st.kFilter === 'B' || st.kFilter === 'duet' ? st.kFilter : 'any', lang: 'English', key: '', note: '', fav: false};
+  sheet(`<h2>${id ? 'Edit song' : 'Add a song'}</h2>${field('Song', `<input id="kst" value="${esc(s.title)}" placeholder="e.g. Perfect">`)}${field('Singer / artist', `<input id="ksa" value="${esc(s.artist || '')}" placeholder="e.g. Ed Sheeran">`)}
+  ${field('Who sings it', `<div class="chips" id="ksw" style="flex-wrap:wrap">${[['A', whoName('A')], ['B', whoName('B')], ['duet', 'Duet'], ['any', 'Anyone']].map(([k, lb]) => `<button type="button" class="chip sm ${s.who === k ? 'on' : ''}" data-k="${k}" onclick="document.querySelectorAll('#ksw .chip').forEach(c=>c.classList.toggle('on',c===this))">${esc(lb)}</button>`).join('')}</div>`)}
+  <div class="grid2">${field('Language', `<select id="ksl">${KLANG.map(o => `<option ${s.lang === o ? 'selected' : ''}>${o}</option>`).join('')}</select>`)}${field('Key / pitch (optional)', `<input id="ksk" value="${esc(s.key || '')}" placeholder="e.g. -2">`)}</div>
+  ${field('Notes', `<input id="ksn" value="${esc(s.note || '')}" placeholder="e.g. Start slow, the chorus is high">`)}
+  <button class="btn block" onclick="kSave('${id || ''}')">Save</button>
+  ${id ? `<a class="btn soft block" style="margin-top:10px;text-align:center" href="${ytKaraoke(s)}" target="_blank" rel="noopener">▶ Find karaoke version on YouTube</a><button class="btn red block" style="margin-top:10px" onclick="confirmDel(()=>delFrom('karaoke','${id}'))">Delete</button>` : ''}`); }
+function kSave(id) { if (!val('kst')) return toast('Add the song title'); const w = document.querySelector('#ksw .chip.on');
+  const o = {title: val('kst'), artist: val('ksa'), who: w ? w.dataset.k : 'any', lang: val('ksl'), key: val('ksk'), note: val('ksn')};
+  D().karaoke = D().karaoke || []; if (id) Object.assign(D().karaoke.find(x => x.id === id), o); else { D().karaoke.push({id: uid(), by: S().me, added: Date.now(), fav: false, sung: 0, ...o}); act('🎤', `added "${o.title}" to karaoke`); }
+  DB.save(); closeSheet(); render(); }
+function kFav(id) { const s = D().karaoke.find(x => x.id === id); s.fav = !s.fav; DB.save(); render(); }
+function kSang(id) { const s = D().karaoke.find(x => x.id === id); s.sung = (s.sung || 0) + 1; s.lastSung = todayISO(); DB.save(); render(); toast(`🎤 ${s.title}: sung ${s.sung}×`); }
+function kSetlist() { const l = [...D().karaoke].sort(() => Math.random() - .5).slice(0, 6);
+  sheet(`<h2>Tonight's setlist 🎤</h2><div class="list">${l.map((s, i) => `<div class="item"><b style="width:22px">${i + 1}</b><div class="grow"><div class="t">${esc(s.title)}</div><div class="s">${esc([s.artist, kWho(s)].filter(Boolean).join(' · '))}</div></div><a class="btn soft sm" href="${ytKaraoke(s)}" target="_blank" rel="noopener">▶</a></div>`).join('')}</div>
+  <button class="btn soft block" style="margin-top:12px" onclick="kSetlist()">🎲 Shuffle again</button>`); }
 
 /* ---------- start ---------- */
 render();
