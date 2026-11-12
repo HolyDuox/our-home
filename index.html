@@ -1157,10 +1157,8 @@ function vSettings() {
     <div class="row"><button class="btn soft grow" onclick="pinSetup()">Change PIN</button><button class="btn red grow" onclick="S().pinHash='';DB.save();render();toast('PIN lock off')">Turn off</button></div>`
     : `<p class="muted" style="margin-top:0">Ask for a 4-digit PIN when the app opens.</p><button class="btn block" onclick="pinSetup()">Set a PIN</button>`}
   <p class="muted" style="font-size:13px;margin-bottom:0">Each phone has its own PIN. If you forget it, use "Forgot PIN" on the lock screen; your data stays.</p></div>
-  <h2>Sync between phones</h2>
-  <div class="card"><span class="pill warn">Not connected yet</span><p class="muted">Right now everything is saved on this phone only. Shared sync between both phones is the next step.</p></div>
   <h2>Backup</h2>
-  <div class="card"><p class="muted" style="margin-top:0">Save a copy of your data (without photos) or restore one.</p>
+  <div class="card"><p class="muted" style="margin-top:0">Save a copy of all your data and photos to a file, or restore one.</p>
   <div class="row"><button class="btn soft grow" onclick="backup()">Download backup</button><label class="btn soft grow" style="text-align:center">Restore<input type="file" accept=".json" style="display:none" onchange="restore(this)"></label></div></div>
   <h2>Install on your phone</h2>
   <div class="card muted"><b style="color:var(--ink)">iPhone (Safari):</b> tap Share, then <i>Add to Home Screen</i>.<br><br><b style="color:var(--ink)">Android / Red Magic (Chrome):</b> tap ⋮, then <i>Add to Home screen</i> or <i>Install app</i>.</div>`;
