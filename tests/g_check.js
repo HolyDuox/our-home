@@ -1,0 +1,10 @@
+const { chromium } = require('playwright'); const { open } = require('./common');
+(async () => { const b = await chromium.launch(); const { p, errs } = await open(b);
+  await p.evaluate(() => { D().kids.push(newKid({name: 'Aisyah', dob: '2025-11-01', sex: 'girl'})); S().activeKid = D().kids[0].id; S().startDate = '2023-03-01';
+    D().bills.push({id: uid(), name: 'Housing loan', type: 'Loan', amount: 1850, dueDay: 5, payer: 'both', paid: []}); D().expenses.push({id: uid(), amount: 45.5, date: todayISO(), cat: 'Food', who: 'A', note: 'Dinner'}); DB.save(); go('home'); });
+  await p.waitForTimeout(400);
+  console.log('feed button opens:', await p.evaluate(() => { [...document.querySelectorAll('button')].find(b => /Log feed|Fed /.test(b.textContent)).click(); return document.querySelector('#sheet h2')?.textContent; }));
+  await p.evaluate(() => closeSheet()); await p.screenshot({ path: 'g1.png' });
+  await p.evaluate(() => go('money', 'Overview')); await p.waitForTimeout(300); await p.screenshot({ path: 'g2.png' });
+  await p.evaluate(() => go('money', 'Bills')); await p.waitForTimeout(300); await p.screenshot({ path: 'g3.png' });
+  console.log(errs); await b.close(); })();
