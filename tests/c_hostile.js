@@ -1,12 +1,12 @@
 const { chromium } = require('playwright'); const { open, NASTY } = require('./common');
-const VIEWS = [['home', ''], ['tasks', ''], ['restock', "st.restockView='list'"], ['restock', "st.restockView='meals'"], ['restock', "st.restockView='recipes'"], ['calendar', `st.planView='cal';st.calSel=todayISO()`], ['calendar', "st.planView='watch';st.watchStat='want'"], ['calendar', "st.planView='watch';st.watchStat='watching'"], ['calendar', "st.planView='act';st.actStat='todo'"], ['calendar', "st.planView='act';st.actStat='done'"],
-  ...['Overview','Expenses','Bills','Savings goals','Wishlist'].map(m => ['money', `st.money='${m}'`]), ['money', "st.money='Bills';st.commitView='scheduled'"],
+const VIEWS = [['home', ''], ['tasks', ''], ['restock', "st.restockView='list'"], ['restock', "st.restockView='meals'"], ['restock', "st.restockView='recipes'"], ['calendar', `st.planView='cal';st.calSel=todayISO()`], ['calendar', "st.planView='watch';st.watchStat='want'"], ['calendar', "st.planView='watch';st.watchStat='watching'"], ['calendar', "st.planView='act';st.actStat='todo'"], ['calendar', "st.planView='act';st.actStat='done'"], ['calendar', "st.planView='karaoke';st.kFilter='all'"], ['calendar', "st.planView='karaoke';st.kFilter='fav'"],
+  ...['Overview','Expenses','Bills','Savings goals','Wealth','Wishlist'].map(m => ['money', `st.money='${m}'`]), ['money', "st.money='Bills';st.commitView='scheduled'"],
   ...['Memories','Notes','Car','Contacts','Settings'].map(m => ['more', `st.more='${m}'`]),
   ...['Today','Growth','Vaccines','Milestones','School','Chores'].map(t => ['kids', `st.babyTab='${t}';st.openBand=-1`]), ['kids', "st.babyTab='Milestones';st.openBand=0"], ['kids', "S().activeKid=D().kids[1].id;st.babyTab='Growth'"]];
 (async () => {
   const b = await chromium.launch(); const { p, errs } = await open(b);
   await p.evaluate(N => { const d = D(), t = todayISO(); let i = 0; const n = () => N[i++ % N.length];
-    S().nameA = N[0]; S().nameB = N[1]; S().startDate = t.replace(/^\d{4}/, y => y - 2);
+    S().goldPrice = 545; S().goldPriceAt = Date.now(); S().nameA = N[0]; S().nameB = N[1]; S().startDate = t.replace(/^\d{4}/, y => y - 2);
     N.forEach((x, j) => { const k = newKid({name: x.slice(0, 40), dob: j % 2 ? '2024-02-29' : '2019-12-31', sex: j % 2 ? 'girl' : 'boy'}); k.milestones[x] = t; k.growth.push({id: uid(), date: t, weight: '12', height: '88'});
       k.school = {name: x, cls: x, teacher: x, phone: x}; k.classes = [{id: uid(), title: x, days: [0,1,2,3,4,5,6], time: '15:00', place: x}]; k.dates = [{id: uid(), title: x, date: t, type: 'Exam'}];
       k.chores = [{id: uid(), title: x, reward: 1, repeat: 'daily'}]; d.kids.push(k); });
@@ -18,7 +18,7 @@ const VIEWS = [['home', ''], ['tasks', ''], ['restock', "st.restockView='list'"]
       d.expenses.push({id: uid(), amount: 10, date: t, cat: 'Food', who: 'A', note: x}); d.notes.push({id: uid(), title: x, body: x, pin: false, updated: Date.now(), by: 'A', photos: []});
       d.recipes.push({id: uid(), name: x, section: 'General', ingredients: [x, 'Egg'], steps: x, by: 'A'}); d.wishes.push({id: uid(), name: x, price: 10, cat: x, link: x, by: 'A'});
       d.goals.push({id: uid(), name: x, target: 100, saved: 5, log: []}); d.messages.push({id: uid(), text: x, by: 'A', at: Date.now()});
-      d.contacts.push({id: uid(), name: x, phone: x, group: 'Family', note: x}); d.watch.push({id: uid(), title: x, type: 'Series', where: 'Netflix', status: ['want','watching','done'][i % 3], note: x, rating: 3}); d.activities.push({id: uid(), title: x, cat: 'Adventure', place: x, cost: 50, date: t, note: x, done: i % 2 === 0, rating: 4}); d.memories.push({id: uid(), title: x, date: t, likes: 0, by: 'A'}); act('✅', x); });
+      d.contacts.push({id: uid(), name: x, phone: x, group: 'Family', note: x}); d.watch.push({id: uid(), title: x, type: 'Series', where: 'Netflix', status: ['want','watching','done'][i % 3], note: x, rating: 3}); d.gold.push({id: uid(), name: x, grams: 5 + i, purity: ['999','916','750'][i % 3], cost: 1000, date: t, who: ['A','B','both'][i % 3], note: x}); d.investments.push({id: uid(), name: x, type: 'ASB', rate: 5, start: 1000, startDate: '2020-01-31', monthly: 100, who: 'both', note: x}); d.karaoke.push({id: uid(), title: x, artist: x, who: ['A','B','duet','any'][i % 4], lang: 'Malay', note: x, fav: i % 2 === 0, sung: 1}); d.activities.push({id: uid(), title: x, cat: 'Adventure', place: x, cost: 50, date: t, note: x, done: i % 2 === 0, rating: 4}); d.memories.push({id: uid(), title: x, date: t, likes: 0, by: 'A'}); act('✅', x); });
     d.cars.push({id: uid(), name: N[0], plate: N[1], mileage: 1000, mileageAt: t}); d.services.push({id: uid(), car: d.cars[0].id, date: t, km: 900, cost: 10, note: N[0]});
     d.meals[t] = {Breakfast: N[0], Lunch: N[1], Dinner: N[2]}; DB.save(); }, NASTY);
   const report = []; let clicks = 0;

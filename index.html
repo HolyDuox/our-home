@@ -246,7 +246,7 @@ const DEFAULT = {
   settings: { nameA: 'You', nameB: 'Partner', me: 'A', startDate: '', babyName: '', babyDob: '', theme: 'auto', zone: 'WLY01', reminders: {bills: true, events: true, tasks: true, vaccines: true, who: 'both'} },
   tasks: [], restock: [], restockCats: ['Pantry', 'Baby', 'Household'],
   events: [], bills: [], growth: [], vaccines: {}, milestones: {}, memories: [],
-  notes: [], recipes: [], wishes: [], goals: [], expenses: [], messages: [], babylog: [], sleepStart: null, settlements: [], activity: [], meals: {}, scheduled: [], cars: [], services: [], contacts: [], watch: [], activities: [], karaoke: []
+  notes: [], recipes: [], wishes: [], goals: [], expenses: [], messages: [], babylog: [], sleepStart: null, settlements: [], activity: [], meals: {}, scheduled: [], cars: [], services: [], contacts: [], watch: [], activities: [], karaoke: [], gold: [], investments: [], goldHist: []
 };
 const DB = {
   data: null,
@@ -530,7 +530,7 @@ const I = {
 
 /* ---------- routing ---------- */
 const TABS = [['home','Home',I.home],['tasks','Tasks',I.tasks],['restock','Kitchen',I.pot],['kids','Kids',I.kid],['calendar','Plans',I.cal],['money','Finance',I.wallet],['more','More',I.more]];
-const MONEY = ['Overview','Expenses','Bills','Savings goals','Wishlist'];
+const MONEY = ['Overview','Expenses','Bills','Savings goals','Wealth','Wishlist'];
 const MORE = ['Memories','Notes','Car','Contacts','Settings'];
 const st = { tab: 'home', more: 'Memories', restockCat: null, calY: new Date().getFullYear(), calM: new Date().getMonth(), calSel: null,
   babyTab: 'Today', carSel: null, cGroup: 'All', cq: '', commitView: 'monthly', restockView: 'list', mealWeek: 0, money: 'Overview', recipeSec: 'General', wishCat: 'All', expY: new Date().getFullYear(), expM: new Date().getMonth(), q: '', openBand: null };
@@ -1344,7 +1344,7 @@ document.addEventListener('visibilitychange', () => {
 
 /* =================== MONEY TAB =================== */
 function vMoney() {
-  const views = {Overview: vMoneyOverview, Expenses: vExpenses, Bills: vBills, 'Savings goals': vGoals, Wishlist: vWish};
+  const views = {Overview: vMoneyOverview, Expenses: vExpenses, Bills: vBills, 'Savings goals': vGoals, Wealth: vWealth, Wishlist: vWish};
   if (!views[st.money]) st.money = 'Overview';
   return `<div class="chips" style="margin-bottom:14px" id="moneychips">${MONEY.map(m => `<button class="chip ${m === st.money ? 'on' : ''}" onclick="go('money','${m}')">${m === 'Savings goals' ? 'Savings' : m === 'Bills' ? 'Commitments' : m}</button>`).join('')}</div>${views[st.money]()}`;
 }
@@ -1372,6 +1372,8 @@ function vMoneyOverview() {
     ${tile('Wishlist', 'Wishlist', wishes.length, wishes.length ? 'about ' + RM(wishes.reduce((s, w) => s + Number(w.price || 0), 0)).replace('.00', '') : 'Add a wish')}
     ${tile('Expenses', 'Last month', RM(prev).replace('.00', ''), pm.toLocaleDateString('en-GB', {month:'long'}))}
   </div>
+  ${(D().gold || []).length || (D().investments || []).length ? (() => { const w = (D().gold || []).reduce((a, g) => a + goldVal(g), 0) + (D().investments || []).reduce((a, i) => a + invNow(i), 0);
+    return `<div class="card" style="margin-top:12px" onclick="go('money','Wealth')"><div class="row" style="justify-content:space-between"><div><div class="muted">Wealth · gold & investments</div><div class="serif" style="font-size:26px;margin-top:4px">${RM0(w)}</div></div><span style="font-size:30px">💰</span></div></div>`; })() : ''}
   ${D().goals.length ? `<h2>Savings goals</h2><div class="card">${[...D().goals].sort((a, b) => (a.date || '9').localeCompare(b.date || '9')).slice(0, 3).map(g => { const pct = Math.min(100, Math.round(g.saved / g.target * 100));
     return `<div style="padding:6px 0" onclick="go('money','Savings goals')"><div class="row" style="justify-content:space-between"><b>${esc(g.name)}</b><span class="muted">${pct}%</span></div><div class="bar"><i style="width:${pct}%"></i></div></div>`; }).join('')}</div>` : ''}
   <h2>Recent spending</h2>
@@ -2087,6 +2089,94 @@ function kSang(id) { const s = D().karaoke.find(x => x.id === id); s.sung = (s.s
 function kSetlist() { const l = [...D().karaoke].sort(() => Math.random() - .5).slice(0, 6);
   sheet(`<h2>Tonight's setlist 🎤</h2><div class="list">${l.map((s, i) => `<div class="item"><b style="width:22px">${i + 1}</b><div class="grow"><div class="t">${esc(s.title)}</div><div class="s">${esc([s.artist, kWho(s)].filter(Boolean).join(' · '))}</div></div><a class="btn soft sm" href="${ytKaraoke(s)}" target="_blank" rel="noopener">▶</a></div>`).join('')}</div>
   <button class="btn soft block" style="margin-top:12px" onclick="kSetlist()">🎲 Shuffle again</button>`); }
+
+
+/* =================== WEALTH (gold + investments) =================== */
+const PURITY = [['999', 0.999, '999 (24K)'], ['916', 0.916, '916 (22K)'], ['835', 0.835, '835 (20K)'], ['750', 0.75, '750 (18K)']];
+const ITYPES = ['ASB', 'Tabung Haji', 'EPF / KWSP', 'Unit trust', 'Fixed deposit', 'PRS', 'Stocks', 'Other'];
+const g999 = () => Number(S().goldPrice || 0);
+const goldRate = p => (PURITY.find(x => x[0] === p) || PURITY[0])[1] / 0.999;      // price quoted for 999
+const goldVal = g => g999() * goldRate(g.purity) * Number(g.grams || 0);
+const fullMonths = (a, b) => { const x = new Date(a + 'T00:00'), y = new Date(b + 'T00:00'); let m = (y.getFullYear() - x.getFullYear()) * 12 + y.getMonth() - x.getMonth(); if (y.getDate() < x.getDate()) m--; return Math.max(0, m); };
+// balance after n months: monthly compounding, contribution at the end of each month
+function invFV(start, monthly, ratePa, n) { const r = Number(ratePa || 0) / 100 / 12; start = Number(start || 0); monthly = Number(monthly || 0);
+  if (!r) return start + monthly * n; const f = Math.pow(1 + r, n); return start * f + monthly * (f - 1) / r; }
+const invMonths = i => fullMonths(i.startDate || todayISO(), todayISO());
+const invNow = i => invFV(i.start, i.monthly, i.rate, invMonths(i));
+const invPaid = i => Number(i.start || 0) + Number(i.monthly || 0) * invMonths(i);
+const RM0 = n => 'RM' + Math.round(n).toLocaleString('en-MY');
+function vWealth() {
+  D().gold = D().gold || []; D().investments = D().investments || [];
+  const gold = D().gold, inv = D().investments, price = g999();
+  const grams = gold.reduce((s, g) => s + Number(g.grams || 0) * goldRate(g.purity) * 0.999, 0);
+  const gTot = gold.reduce((s, g) => s + goldVal(g), 0), costed = gold.filter(g => Number(g.cost) > 0), gCost = costed.reduce((s, g) => s + Number(g.cost), 0), gCostVal = costed.reduce((s, g) => s + goldVal(g), 0);
+  const iTot = inv.reduce((s, i) => s + invNow(i), 0), iPaid = inv.reduce((s, i) => s + invPaid(i), 0), iMon = inv.reduce((s, i) => s + Number(i.monthly || 0), 0);
+  const tot = gTot + iTot, gain = (price ? gCostVal - gCost : 0) + iTot - iPaid, tracked = (price ? gCost : 0) + iPaid;
+  const ago = S().goldPriceAt ? Math.floor((Date.now() - S().goldPriceAt) / 864e5) : null;
+  const proj = y => gTot + inv.reduce((s, i) => s + invFV(invNow(i), i.monthly, i.rate, y * 12), 0);
+  return `<h1>Wealth 💰</h1><p class="sub">Gold and investments, growing together.</p>
+  <div class="hero" style="text-align:left"><div class="lbl">Total wealth today</div><div class="big" style="font-size:44px">${RM0(tot)}</div>
+  <div class="lbl">${tracked ? `${gain >= 0 ? '▲' : '▼'} ${RM0(Math.abs(gain))} ${gain >= 0 ? 'gain' : 'down'} so far` : tot ? 'Add what you paid to see your gain' : 'Add your gold or an investment to start'}${iMon ? ` · ${RM0(iMon)}/month going in` : ''}</div></div>
+  ${inv.length ? `<div class="grid2" style="margin-top:12px">${[1, 5, 10, 20].map(y => `<div class="card" style="margin:0"><div class="muted">In ${y} year${y > 1 ? 's' : ''}</div><div class="serif" style="font-size:22px;margin-top:4px">${RM0(proj(y))}</div></div>`).join('')}</div>
+  <p class="muted" style="font-size:12px;margin:6px 4px 0">Estimate at your fixed % per year with monthly top-ups. Gold kept at today's price.</p>` : ''}
+
+  <div class="row" style="justify-content:space-between;margin-top:18px"><h2 style="margin:0">🪙 Gold</h2><button class="tlink" onclick="goldPriceSheet()">${price ? 'Update price' : 'Set price'}</button></div>
+  <div class="card" onclick="goldPriceSheet()" style="margin-top:8px"><div class="row" style="justify-content:space-between"><div><div class="muted">Gold price per gram (999)</div>
+    <div class="serif" style="font-size:26px">${price ? RM(price) : 'Not set'}</div></div><div style="text-align:right"><div class="muted">916: ${price ? RM(price * goldRate('916')) : '-'}</div>
+    <div class="muted" style="font-size:12px">${ago === null ? 'Tap to enter today\'s price' : ago === 0 ? 'updated today' : `updated ${ago} day${ago > 1 ? 's' : ''} ago`}</div></div></div></div>
+  ${gold.length ? `<div class="card"><div class="row" style="justify-content:space-between"><span class="muted">${grams.toFixed(2)} g pure gold</span><b>${price ? RM0(gTot) : '-'}</b></div>
+    ${price && gCost ? `<div class="muted" style="font-size:13px;margin-top:4px">${costed.length < gold.length ? `${costed.length} of ${gold.length} with price paid: ` : ''}bought for ${RM0(gCost)}, now ${RM0(gCostVal)} · ${gCostVal >= gCost ? '▲' : '▼'} ${Math.abs(Math.round((gCostVal - gCost) / gCost * 100))}%</div>` : ''}</div>` : ''}
+  <div class="list">${gold.map(g => { const v = goldVal(g), c = Number(g.cost || 0);
+    return `<div class="item" onclick="goldSheet('${g.id}')"><div class="ico">🪙</div><div class="grow"><div class="t">${esc(g.name || 'Gold')}</div>
+    <div class="s">${[`${Number(g.grams)} g · ${g.purity}`, g.who && g.who !== 'both' ? whoName(g.who) : '', g.date ? fmtDate(g.date) : ''].filter(Boolean).map(esc).join(' · ')}</div></div>
+    <div style="text-align:right"><b>${price ? RM0(v) : '-'}</b>${price && c ? `<div class="s" style="color:${v >= c ? 'var(--good)' : 'var(--red)'}">${v >= c ? '+' : '-'}${RM0(Math.abs(v - c))}</div>` : ''}</div></div>`; }).join('') || '<div class="empty">No gold yet. Add bars, coins, jewellery or a gold account (e.g. 5 g of 999).</div>'}</div>
+  <button class="btn soft block" style="margin-top:10px" onclick="goldSheet()">+ Add gold</button>
+
+  <h2 style="margin-top:20px">📈 Investments</h2>
+  <div class="list">${inv.map(i => { const now = invNow(i), paid = invPaid(i);
+    return `<div class="item" onclick="invSheet('${i.id}')"><div class="ico">📈</div><div class="grow"><div class="t">${esc(i.name)}</div>
+    <div class="s">${[i.type, `${Number(i.rate || 0)}% p.a.`, i.monthly ? `${RM0(i.monthly)}/month` : '', i.who && i.who !== 'both' ? whoName(i.who) : ''].filter(Boolean).map(esc).join(' · ')}</div></div>
+    <div style="text-align:right"><b>${RM0(now)}</b><div class="s">+${RM0(now - paid)} growth</div></div></div>`; }).join('') || '<div class="empty">No investments yet. Add ASB, Tabung Haji, unit trusts or a fixed deposit with a monthly amount and % per year.</div>'}</div>
+  <button class="btn soft block" style="margin-top:10px" onclick="invSheet()">+ Add investment</button><div style="height:20px"></div>`;
+}
+function goldPriceSheet() { sheet(`<h2>Gold price today</h2><p class="sub">Enter the selling price per gram for 999 gold in RM. Other purities (916, 750…) are worked out from it.</p>
+  ${field('RM per gram (999)', `<input id="gp" inputmode="decimal" value="${g999() || ''}" placeholder="e.g. 545.00">`)}
+  <a class="btn soft block" style="text-align:center;margin-bottom:10px" href="https://www.google.com/search?q=harga+emas+999+hari+ini+per+gram" target="_blank" rel="noopener">🔎 Check today's price</a>
+  <button class="btn block" onclick="saveGoldPrice()">Save</button>`); }
+function saveGoldPrice() { const p = parseFloat(val('gp')); if (!(p > 0)) return toast('Enter the price per gram');
+  S().goldPrice = Math.round(p * 100) / 100; S().goldPriceAt = Date.now(); (D().goldHist = D().goldHist || []).push({id: uid(), d: todayISO(), p: S().goldPrice}); D().goldHist = D().goldHist.slice(-400);
+  DB.save(); closeSheet(); render(); }
+function goldSheet(id) { const g = (D().gold || []).find(x => x.id === id) || {name: '', grams: '', purity: '999', cost: '', date: todayISO(), who: 'both', note: ''};
+  sheet(`<h2>${id ? 'Edit gold' : 'Add gold'}</h2>${field('What is it', `<input id="gn" value="${esc(g.name)}" placeholder="e.g. Public Gold bar, wedding bangle">`)}
+  <div class="grid2">${field('Weight (grams)', `<input id="gg" inputmode="decimal" value="${g.grams}" placeholder="e.g. 5">`)}${field('Purity', `<select id="gpu">${PURITY.map(p => `<option value="${p[0]}" ${g.purity === p[0] ? 'selected' : ''}>${p[2]}</option>`).join('')}</select>`)}</div>
+  <div class="grid2">${field('Paid (RM, optional)', `<input id="gc" inputmode="decimal" value="${g.cost || ''}">`)}${field('Bought on', `<input type="date" id="gd" value="${g.date || ''}">`)}</div>
+  ${field('Belongs to', `<select id="gw">${[['both', 'Both'], ['A', whoName('A')], ['B', whoName('B')]].map(([k, l]) => `<option value="${k}" ${g.who === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`)}
+  ${field('Notes', `<input id="gno" value="${esc(g.note || '')}" placeholder="e.g. kept in safe box">`)}
+  <button class="btn block" onclick="saveGold('${id || ''}')">Save</button>${id ? `<button class="btn red block" style="margin-top:10px" onclick="confirmDel(()=>delFrom('gold','${id}'))">Delete</button>` : ''}`); }
+function saveGold(id) { const gr = parseFloat(val('gg')); if (!(gr > 0)) return toast('Enter the weight in grams');
+  const o = {name: val('gn') || 'Gold', grams: gr, purity: val('gpu'), cost: parseFloat(val('gc')) || 0, date: val('gd'), who: val('gw'), note: val('gno')};
+  D().gold = D().gold || []; if (id) Object.assign(D().gold.find(x => x.id === id), o); else { D().gold.push({id: uid(), ...o}); act('🪙', `added ${gr} g of gold`); }
+  DB.save(); closeSheet(); render(); }
+function invSheet(id) { const i = (D().investments || []).find(x => x.id === id) || {name: '', type: 'ASB', start: '', startDate: todayISO(), monthly: '', rate: '', who: 'both', payDay: 1, note: ''};
+  const bill = id && D().bills.find(b => b.id === 'inv-' + id);
+  sheet(`<h2>${id ? 'Edit investment' : 'Add investment'}</h2>${field('Name', `<input id="in" value="${esc(i.name)}" placeholder="e.g. ASB Shazwan, Tabung Haji">`)}
+  <div class="grid2">${field('Type', `<select id="it">${ITYPES.map(t => `<option ${i.type === t ? 'selected' : ''}>${t}</option>`).join('')}</select>`)}${field('Return % per year', `<input id="ir" inputmode="decimal" value="${i.rate}" placeholder="e.g. 5.5">`)}</div>
+  <div class="grid2">${field('Balance now (RM)', `<input id="is" inputmode="decimal" value="${i.start}" placeholder="0">`)}${field('Balance as of', `<input type="date" id="isd" value="${i.startDate || todayISO()}">`)}</div>
+  <div class="grid2">${field('Add monthly (RM)', `<input id="im" inputmode="decimal" value="${i.monthly}" placeholder="e.g. 200">`)}${field('Belongs to', `<select id="iw">${[['both', 'Both'], ['A', whoName('A')], ['B', whoName('B')]].map(([k, l]) => `<option value="${k}" ${i.who === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`)}</div>
+  <label class="row" style="gap:8px;margin:4px 0 12px"><input type="checkbox" id="ib" style="width:auto" ${bill ? 'checked' : ''}> Show the monthly amount in Commitments, on day <input id="iday" inputmode="numeric" style="width:60px" value="${bill ? bill.dueDay : i.payDay || 1}"></label>
+  ${field('Notes', `<input id="ino" value="${esc(i.note || '')}">`)}
+  ${id ? `<div class="card" style="background:var(--accent-soft)"><div class="muted" style="font-size:13px">Estimated today</div><b>${RM(invNow(i))}</b><div class="muted" style="font-size:12px;margin-top:4px">Got a statement? Put the real balance and today's date above and save, so the estimate starts from there.</div></div>` : ''}
+  <button class="btn block" onclick="saveInv('${id || ''}')">Save</button>${id ? `<button class="btn red block" style="margin-top:10px" onclick="confirmDel(()=>{delFrom('investments','${id}');D().bills=D().bills.filter(b=>b.id!=='inv-${id}');DB.save()})">Delete</button>` : ''}`); }
+function saveInv(id) { if (!val('in')) return toast('Give it a name'); const rate = parseFloat(val('ir'));
+  if (!(rate >= 0) || rate > 100) return toast('Enter the % per year (e.g. 5.5)');
+  const o = {name: val('in'), type: val('it'), rate, start: parseFloat(val('is')) || 0, startDate: val('isd') || todayISO(), monthly: parseFloat(val('im')) || 0, who: val('iw'), note: val('ino'),
+    payDay: Math.min(31, Math.max(1, parseInt(val('iday')) || 1))};
+  D().investments = D().investments || []; if (id) Object.assign(D().investments.find(x => x.id === id), o); else { id = uid(); D().investments.push({id, ...o}); act('📈', `added ${o.name} to wealth`); }
+  const bid = 'inv-' + id, b = D().bills.find(x => x.id === bid), want = document.getElementById('ib').checked && o.monthly > 0;
+  if (want) { const bo = {name: o.name, type: 'Savings', amount: o.monthly, dueDay: o.payDay, payer: o.who === 'both' ? 'both' : o.who, invId: id};
+    if (b) Object.assign(b, bo); else D().bills.push({id: bid, paid: [], remind: '1d', ...bo}); }
+  else if (b) D().bills = D().bills.filter(x => x.id !== bid);
+  DB.save(); closeSheet(); render(); }
 
 /* ---------- start ---------- */
 render();

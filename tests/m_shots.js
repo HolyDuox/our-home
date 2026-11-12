@@ -1,0 +1,10 @@
+const { chromium } = require('playwright'); const { open } = require('./common');
+(async () => { const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 }); const p = await ctx.newPage();
+  await p.addInitScript(() => { window.open = () => null; }); await p.goto('file:///mnt/project-files/family-app/index.html'); await p.evaluate(() => hideSplash()); await p.waitForTimeout(800);
+  await p.evaluate(() => { const t = todayISO(); S().nameA = 'Shaz'; S().nameB = 'Wife';
+    D().watch = [{id: 'w1', title: 'Dune: Part Two', type: 'Movie', where: 'Cinema', status: 'want', by: 'A', added: 3}, {id: 'w2', title: 'Oppenheimer', type: 'Movie', where: 'Prime Video', status: 'want', by: 'B', added: 2}, {id: 'w3', title: 'Lovely Runner', type: 'Series', where: 'Viu', status: 'want', by: 'B', added: 1}, {id: 'w4', title: 'Squid Game', type: 'Series', where: 'Netflix', status: 'watching', season: 2, ep: 3}];
+    D().activities = [{id: 'a1', title: 'White-water rafting', cat: 'Water', place: 'Gopeng', cost: 180, date: '2026-12-06', done: false}, {id: 'a2', title: 'Paintball', cat: 'Adventure', place: 'Kota Damansara', cost: 90, done: false}, {id: 'a3', title: 'Hot air balloon', cat: 'Adventure', place: 'Putrajaya', cost: 450, done: false}, {id: 'a4', title: 'Pottery class', cat: 'Class', place: 'Bangsar', cost: 120, done: false}];
+    D().events.push({id: 'act-a1', title: '🎯 White-water rafting', date: '2026-12-06'}, {id: 'e2', title: 'Movie night', date: t}); });
+  const shots = [["st.planView='cal';st.calSel=null", 'layout-1-calendar.png'], ["st.planView='watch';st.watchStat='want'", 'layout-2-watch.png'], ["st.planView='act';st.actStat='todo'", 'layout-3-activities.png']];
+  for (const [pre, f] of shots) { await p.evaluate(pre => { eval(pre); st.tab = 'calendar'; render(); window.scrollTo(0, 0); }, pre); await p.waitForTimeout(250); await p.screenshot({ path: '/mnt/project-files/family-app/screens/' + f }); }
+  await b.close(); })();
