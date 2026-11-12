@@ -1,5 +1,5 @@
 const { chromium } = require('playwright'); const { open, NASTY } = require('./common');
-const VIEWS = [['home', ''], ['tasks', ''], ['restock', "st.restockView='list'"], ['restock', "st.restockView='meals'"], ['restock', "st.restockView='recipes'"], ['calendar', `st.calSel=todayISO()`],
+const VIEWS = [['home', ''], ['tasks', ''], ['restock', "st.restockView='list'"], ['restock', "st.restockView='meals'"], ['restock', "st.restockView='recipes'"], ['calendar', `st.planView='cal';st.calSel=todayISO()`], ['calendar', "st.planView='watch';st.watchStat='want'"], ['calendar', "st.planView='watch';st.watchStat='watching'"], ['calendar', "st.planView='act';st.actStat='todo'"], ['calendar', "st.planView='act';st.actStat='done'"],
   ...['Overview','Expenses','Bills','Savings goals','Wishlist'].map(m => ['money', `st.money='${m}'`]), ['money', "st.money='Bills';st.commitView='scheduled'"],
   ...['Memories','Notes','Car','Contacts','Settings'].map(m => ['more', `st.more='${m}'`]),
   ...['Today','Growth','Vaccines','Milestones','School','Chores'].map(t => ['kids', `st.babyTab='${t}';st.openBand=-1`]), ['kids', "st.babyTab='Milestones';st.openBand=0"], ['kids', "S().activeKid=D().kids[1].id;st.babyTab='Growth'"]];
@@ -18,7 +18,7 @@ const VIEWS = [['home', ''], ['tasks', ''], ['restock', "st.restockView='list'"]
       d.expenses.push({id: uid(), amount: 10, date: t, cat: 'Food', who: 'A', note: x}); d.notes.push({id: uid(), title: x, body: x, pin: false, updated: Date.now(), by: 'A', photos: []});
       d.recipes.push({id: uid(), name: x, section: 'General', ingredients: [x, 'Egg'], steps: x, by: 'A'}); d.wishes.push({id: uid(), name: x, price: 10, cat: x, link: x, by: 'A'});
       d.goals.push({id: uid(), name: x, target: 100, saved: 5, log: []}); d.messages.push({id: uid(), text: x, by: 'A', at: Date.now()});
-      d.contacts.push({id: uid(), name: x, phone: x, group: 'Family', note: x}); d.memories.push({id: uid(), title: x, date: t, likes: 0, by: 'A'}); act('✅', x); });
+      d.contacts.push({id: uid(), name: x, phone: x, group: 'Family', note: x}); d.watch.push({id: uid(), title: x, type: 'Series', where: 'Netflix', status: ['want','watching','done'][i % 3], note: x, rating: 3}); d.activities.push({id: uid(), title: x, cat: 'Adventure', place: x, cost: 50, date: t, note: x, done: i % 2 === 0, rating: 4}); d.memories.push({id: uid(), title: x, date: t, likes: 0, by: 'A'}); act('✅', x); });
     d.cars.push({id: uid(), name: N[0], plate: N[1], mileage: 1000, mileageAt: t}); d.services.push({id: uid(), car: d.cars[0].id, date: t, km: 900, cost: 10, note: N[0]});
     d.meals[t] = {Breakfast: N[0], Lunch: N[1], Dinner: N[2]}; DB.save(); }, NASTY);
   const report = []; let clicks = 0;

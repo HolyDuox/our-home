@@ -246,7 +246,7 @@ const DEFAULT = {
   settings: { nameA: 'You', nameB: 'Partner', me: 'A', startDate: '', babyName: '', babyDob: '', theme: 'auto', zone: 'WLY01', reminders: {bills: true, events: true, tasks: true, vaccines: true, who: 'both'} },
   tasks: [], restock: [], restockCats: ['Pantry', 'Baby', 'Household'],
   events: [], bills: [], growth: [], vaccines: {}, milestones: {}, memories: [],
-  notes: [], recipes: [], wishes: [], goals: [], expenses: [], messages: [], babylog: [], sleepStart: null, settlements: [], activity: [], meals: {}, scheduled: [], cars: [], services: [], contacts: []
+  notes: [], recipes: [], wishes: [], goals: [], expenses: [], messages: [], babylog: [], sleepStart: null, settlements: [], activity: [], meals: {}, scheduled: [], cars: [], services: [], contacts: [], watch: [], activities: []
 };
 const DB = {
   data: null,
@@ -529,7 +529,7 @@ const I = {
 };
 
 /* ---------- routing ---------- */
-const TABS = [['home','Home',I.home],['tasks','Tasks',I.tasks],['restock','Kitchen',I.pot],['kids','Kids',I.kid],['calendar','Calendar',I.cal],['money','Finance',I.wallet],['more','More',I.more]];
+const TABS = [['home','Home',I.home],['tasks','Tasks',I.tasks],['restock','Kitchen',I.pot],['kids','Kids',I.kid],['calendar','Plans',I.cal],['money','Finance',I.wallet],['more','More',I.more]];
 const MONEY = ['Overview','Expenses','Bills','Savings goals','Wishlist'];
 const MORE = ['Memories','Notes','Car','Contacts','Settings'];
 const st = { tab: 'home', more: 'Memories', restockCat: null, calY: new Date().getFullYear(), calM: new Date().getMonth(), calSel: null,
@@ -643,6 +643,8 @@ function vSearch() {
   D().notes.forEach(x => (hit(x.title) || hit(x.body)) && r.push(['Note', x.title || x.body.slice(0, 40), "go('more','Notes')"]));
   D().recipes.forEach(x => (hit(x.name) || x.ingredients.some(hit)) && r.push(['Recipe', x.name, `st.restockView='recipes';go('restock');recipeView('${x.id}')`]));
   D().wishes.forEach(x => hit(x.name) && r.push(['Wish', x.name, "go('money','Wishlist')"]));
+  (D().watch || []).forEach(x => hit(x.title) && r.push(['To watch', x.title, `st.planView='watch';go('calendar');watchSheet('${x.id}')`]));
+  (D().activities || []).forEach(x => hit(x.title) && r.push(['Activity', x.title, `st.planView='act';go('calendar');actSheet('${x.id}')`]));
   D().memories.forEach(x => hit(x.title) && r.push(['Memory', x.title, "go('more','Memories')"]));
   D().expenses.forEach(x => (hit(x.note) || hit(x.cat)) && r.push(['Expense · ' + RM(x.amount), x.note || x.cat, "go('money','Expenses')"]));
   return `<h1>Search</h1><div class="search">${I.search}<input placeholder="Search everything" value="${esc(st.q)}" oninput="st.q=this.value;render();const i=document.querySelector('.search input');if(i){i.focus();i.setSelectionRange(99,99)}"><button class="tlink" onclick="st.q='';render()">Clear</button></div>
@@ -736,7 +738,7 @@ function saveRestock(id) {
 }
 
 /* =================== CALENDAR =================== */
-function vCalendar() {
+function vCalOnly() {
   const y = st.calY, m = st.calM, first = new Date(y, m, 1), dim = new Date(y, m + 1, 0).getDate();
   const off = (first.getDay() + 6) % 7, t = todayISO(), key = `${y}-${String(m + 1).padStart(2, '0')}`;
   const bills = billDates(`${key}-01`, `${key}-${dim}`);
@@ -752,7 +754,7 @@ function vCalendar() {
   const sel = st.calSel;
   const selItems = sel ? [...D().events.filter(e => e.date === sel).map(e => ({...e, kind: 'Event'})), ...D().tasks.filter(x => x.due === sel).map(x => ({title: x.title, kind: 'Task'})), ...kidDates(sel, sel), ...classesOn(sel).map(({kid, c}) => ({title: `${kid.name}: ${c.title}`, kind: 'Class', time: t12(c.time)})), ...billDates(sel, sel)] : [];
   const up = D().events.filter(e => e.date >= t).sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''))).slice(0, 12);
-  return `<h1>Calendar</h1><p class="sub">Events and important dates. Tap a day to see or add, swipe to change month.</p>
+  return `<p class="sub">Events and important dates. Tap a day to see or add, swipe to change month.</p>
   <div class="card" id="calcard">
     <div class="row" style="justify-content:space-between;margin-bottom:8px"><button class="tlink" style="font-size:22px;padding:0 10px" onclick="calMove(-1)">‹</button>
     <b style="font-size:18px">${first.toLocaleDateString('en-GB', {month:'long', year:'numeric'})}</b><button class="tlink" style="font-size:22px;padding:0 10px" onclick="calMove(1)">›</button></div>
@@ -1955,6 +1957,97 @@ function savePayout(kid) { const k = kidById(kid), a = parseFloat(val('kpa')) ||
 function choreSetSheet(kid) { const k = kidById(kid);
   sheet(`<h2>Rewards for ${esc(k.name)}</h2><p class="muted" style="margin-top:-6px">Stars suit little ones (swap for treats). Ringgit suits older kids learning about money.</p>
   <div class="row" style="margin-top:12px"><button class="btn ${k.unit !== 'stars' ? '' : 'soft'} grow" onclick="kidById('${kid}').unit='rm';DB.save();closeSheet();render()">💵 Ringgit</button><button class="btn ${k.unit === 'stars' ? '' : 'soft'} grow" onclick="kidById('${kid}').unit='stars';DB.save();closeSheet();render()">⭐ Stars</button></div>`); }
+
+
+/* =================== ACTIVITIES & CALENDAR: TO WATCH + ACTIVITIES =================== */
+function vCalendar() {
+  const v = st.planView || 'cal';
+  const chips = `<div class="chips" style="margin-bottom:12px">${[['cal', '📅 Calendar'], ['watch', '🍿 Watch'], ['act', '🎯 Activities']].map(([k, l]) => `<button class="chip ${v === k ? 'on' : ''}" onclick="st.planView='${k}';render()">${l}</button>`).join('')}</div>`;
+  return `<h1 style="font-size:30px">Activities & Calendar</h1>` + chips + (v === 'watch' ? vWatch() : v === 'act' ? vActs() : vCalOnly());
+}
+const WTYPES = [['Movie', '🎬'], ['Series', '📺'], ['Video', '▶️'], ['Documentary', '🌍'], ['Anime', '🍥']];
+const WHERE = ['Netflix', 'Disney+ Hotstar', 'Prime Video', 'YouTube', 'Viu', 'iQIYI', 'Apple TV+', 'HBO Max', 'Astro', 'Cinema', 'Other'];
+const WSTAT = [['want', 'Want to watch'], ['watching', 'Watching'], ['done', 'Watched']];
+const stars = n => n ? '★'.repeat(n) + '<span style="opacity:.3">' + '★'.repeat(5 - n) + '</span>' : '';
+function vWatch() {
+  D().watch = D().watch || []; const f = st.watchStat || 'want', all = D().watch, l = all.filter(w => (w.status || 'want') === f);
+  l.sort((a, b) => f === 'done' ? (b.doneAt || '').localeCompare(a.doneAt || '') : (b.added || 0) - (a.added || 0));
+  const cnt = s => all.filter(w => (w.status || 'want') === s).length;
+  return `<p class="sub">Movies, series and videos we want to watch together.</p>
+  <div class="chips" style="margin-bottom:10px">${WSTAT.map(([k, lb]) => `<button class="chip sm ${f === k ? 'on' : ''}" onclick="st.watchStat='${k}';render()">${lb}<span class="n">${cnt(k)}</span></button>`).join('')}</div>
+  ${f === 'want' && l.length > 1 ? `<button class="btn soft block" style="margin-bottom:12px" onclick="pickWatch()">🎲 Pick something for tonight</button>` : ''}
+  <div class="list">${l.map(w => { const t = WTYPES.find(x => x[0] === w.type) || WTYPES[0];
+    return `<div class="item" onclick="watchSheet('${w.id}')"><div style="font-size:26px">${t[1]}</div><div class="grow"><div class="t">${esc(w.title)}</div>
+    <div class="s">${[w.type, w.where, w.status === 'watching' && w.type !== 'Movie' && (w.season || w.ep) ? `S${w.season || 1} E${w.ep || 1}` : '', w.status === 'done' && w.doneAt ? fmtDate(w.doneAt, {day: 'numeric', month: 'short', year: 'numeric'}) : '', w.by ? 'added by ' + whoName(w.by) : ''].filter(Boolean).map(esc).join(' · ')}</div>
+    ${w.rating ? `<div style="color:var(--warn);font-size:14px;margin-top:2px">${stars(w.rating)}</div>` : ''}</div>
+    ${w.status === 'watching' && w.type !== 'Movie' ? `<button class="btn soft sm" onclick="event.stopPropagation();nextEp('${w.id}')">+1 ep</button>` : w.status !== 'done' ? `<button class="btn soft sm" onclick="event.stopPropagation();watchDone('${w.id}')">✓</button>` : ''}</div>`; }).join('')
+    || `<div class="empty">${f === 'want' ? 'Nothing on the list yet. Add a movie or series you both want to see.' : f === 'watching' ? 'Nothing in progress.' : 'Nothing watched yet.'}</div>`}</div>
+  <button class="fab" onclick="watchSheet()">+ Add to watch</button>`;
+}
+function watchSheet(id) { const w = (D().watch || []).find(x => x.id === id) || {title: '', type: 'Movie', where: 'Netflix', status: st.watchStat || 'want', season: '', ep: '', rating: 0, note: '', link: ''};
+  sheet(`<h2>${id ? 'Edit' : 'Add to watch'}</h2>${field('Title', `<input id="wt" value="${esc(w.title)}" placeholder="e.g. Oppenheimer, Squid Game">`)}
+  ${field('Type', `<div class="chips" id="wty" style="flex-wrap:wrap">${WTYPES.map(([t, ic]) => `<button type="button" class="chip sm ${w.type === t ? 'on' : ''}" data-t="${t}" onclick="document.querySelectorAll('#wty .chip').forEach(c=>c.classList.toggle('on',c===this))">${ic} ${t}</button>`).join('')}</div>`)}
+  <div class="grid2">${field('Where', `<select id="ww">${WHERE.map(o => `<option ${w.where === o ? 'selected' : ''}>${o}</option>`).join('')}</select>`)}${field('Status', `<select id="ws">${WSTAT.map(([k, l]) => `<option value="${k}" ${w.status === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`)}</div>
+  <div class="grid2">${field('Season (series)', `<input id="wse" inputmode="numeric" value="${w.season || ''}">`)}${field('Episode', `<input id="wep" inputmode="numeric" value="${w.ep || ''}">`)}</div>
+  ${field('Our rating', `<div class="row" id="wra" style="gap:4px">${[1, 2, 3, 4, 5].map(n => `<button type="button" data-n="${n}" style="font-size:28px;color:${n <= (w.rating || 0) ? 'var(--warn)' : 'var(--line)'}" onclick="document.querySelectorAll('#wra button').forEach(b=>b.style.color=+b.dataset.n<=${n}?'var(--warn)':'var(--line)');document.getElementById('wra').dataset.v=${n}">★</button>`).join('')}</div>`)}
+  ${field('Link or note (optional)', `<input id="wn" value="${esc(w.note || '')}" placeholder="Trailer link, who recommended it…">`)}
+  <button class="btn block" onclick="saveWatch('${id || ''}')">Save</button>
+  ${id ? `<button class="btn soft block" style="margin-top:10px" onclick="planWatch('${id}')">📅 Plan a movie night</button><button class="btn red block" style="margin-top:10px" onclick="confirmDel(()=>delFrom('watch','${id}'))">Delete</button>` : ''}`);
+  const r = document.getElementById('wra'); if (r) r.dataset.v = w.rating || 0; }
+function saveWatch(id) { if (!val('wt')) return toast('Add a title'); const t = document.querySelector('#wty .chip.on');
+  const o = {title: val('wt'), type: t ? t.dataset.t : 'Movie', where: val('ww'), status: val('ws'), season: parseInt(val('wse')) || '', ep: parseInt(val('wep')) || '', rating: +document.getElementById('wra').dataset.v || 0, note: val('wn')};
+  D().watch = D().watch || []; const x = D().watch.find(w => w.id === id);
+  if (o.status === 'done' && (!x || x.status !== 'done')) o.doneAt = todayISO();
+  if (x) Object.assign(x, o); else { D().watch.push({id: uid(), by: S().me, added: Date.now(), ...o}); act('🍿', `added "${o.title}" to watch`); }
+  st.watchStat = o.status; DB.save(); closeSheet(); render(); }
+function watchDone(id) { const w = D().watch.find(x => x.id === id); w.status = 'done'; w.doneAt = todayISO(); act('🍿', `watched "${w.title}"`); DB.save(); render(); toast('Moved to Watched. Tap it to rate'); }
+function nextEp(id) { const w = D().watch.find(x => x.id === id); w.ep = (parseInt(w.ep) || 0) + 1; w.season = w.season || 1; DB.save(); render(); toast(`${w.title}: S${w.season} E${w.ep}`); }
+function pickWatch() { const l = D().watch.filter(w => (w.status || 'want') === 'want'); const w = l[Math.floor(Math.random() * l.length)]; const t = WTYPES.find(x => x[0] === w.type) || WTYPES[0];
+  sheet(`<div style="text-align:center"><div style="font-size:56px;margin-top:6px">${t[1]}</div><h2 style="margin:8px 0 4px">${esc(w.title)}</h2><p class="muted">${esc([w.type, w.where].filter(Boolean).join(' · '))}</p></div>
+  <div class="row" style="margin-top:14px"><button class="btn soft grow" onclick="pickWatch()">🎲 Again</button><button class="btn grow" onclick="const w=D().watch.find(x=>x.id==='${w.id}');w.status='watching';DB.save();closeSheet();st.watchStat='watching';render();toast('Enjoy! 🍿')">Watch this</button></div>`); }
+function planWatch(id) { const w = D().watch.find(x => x.id === id); closeSheet(); planSheet(`🍿 ${w.title}`, 'watch-' + id); }
+
+const ACATS = [['Adventure', '🧗'], ['Outdoor', '🏕️'], ['Water', '🛶'], ['Food', '🍜'], ['Travel', '✈️'], ['Indoor', '🎳'], ['Class', '🎨'], ['Other', '✨']];
+function vActs() {
+  D().activities = D().activities || []; const f = st.actStat || 'todo', all = D().activities;
+  const l = all.filter(a => f === 'done' ? a.done : !a.done).sort((a, b) => f === 'done' ? (b.doneAt || '').localeCompare(a.doneAt || '') : (a.date || '9999').localeCompare(b.date || '9999') || (b.added || 0) - (a.added || 0));
+  const t = todayISO();
+  return `<p class="sub">Things we want to do together, like rafting, paintball or a cooking class.</p>
+  <div class="chips" style="margin-bottom:10px">${[['todo', 'Want to do'], ['done', 'Done']].map(([k, lb]) => `<button class="chip sm ${f === k ? 'on' : ''}" onclick="st.actStat='${k}';render()">${lb}<span class="n">${all.filter(a => k === 'done' ? a.done : !a.done).length}</span></button>`).join('')}</div>
+  ${f === 'todo' && l.length > 1 ? `<button class="btn soft block" style="margin-bottom:12px" onclick="pickAct()">🎲 Surprise us</button>` : ''}
+  <div class="list">${l.map(a => { const c = ACATS.find(x => x[0] === a.cat) || ACATS[7];
+    return `<div class="item" onclick="actSheet('${a.id}')"><div style="font-size:26px">${c[1]}</div><div class="grow"><div class="t">${esc(a.title)}</div>
+    <div class="s">${[a.place, a.cost ? RM(a.cost) + ' each' : '', a.done && a.doneAt ? fmtDate(a.doneAt, {day: 'numeric', month: 'short', year: 'numeric'}) : ''].filter(Boolean).map(esc).join(' · ')}</div>
+    ${a.rating ? `<div style="color:var(--warn);font-size:14px;margin-top:2px">${stars(a.rating)}</div>` : ''}</div>
+    ${!a.done && a.date ? `<span class="pill ${a.date < t ? 'warn' : ''}" style="font-size:12px">📅 ${fmtDate(a.date, {day: 'numeric', month: 'short'})}</span>` : ''}</div>`; }).join('')
+    || `<div class="empty">${f === 'todo' ? 'Start your bucket list: white-water rafting, paintball, hot air balloon, glamping…' : 'Nothing done yet. Go have fun!'}</div>`}</div>
+  <button class="fab" onclick="actSheet()">+ Add activity</button>`;
+}
+function actSheet(id) { const a = (D().activities || []).find(x => x.id === id) || {title: '', cat: 'Adventure', place: '', cost: '', date: '', note: '', rating: 0, done: false};
+  sheet(`<h2>${id ? 'Activity' : 'New activity'}</h2>${field('What', `<input id="at" value="${esc(a.title)}" placeholder="e.g. White-water rafting">`)}
+  ${field('Type', `<div class="chips" id="aty" style="flex-wrap:wrap">${ACATS.map(([t, ic]) => `<button type="button" class="chip sm ${a.cat === t ? 'on' : ''}" data-t="${t}" onclick="document.querySelectorAll('#aty .chip').forEach(c=>c.classList.toggle('on',c===this))">${ic} ${t}</button>`).join('')}</div>`)}
+  <div class="grid2">${field('Where', `<input id="ap" value="${esc(a.place || '')}" placeholder="e.g. Gopeng">`)}${field('Cost per person RM', `<input id="ac" inputmode="decimal" value="${a.cost || ''}">`)}</div>
+  ${field('Planned date (optional, adds to Calendar)', `<input type="date" id="ad" value="${a.date || ''}">`)}
+  ${field('Notes', `<input id="an" value="${esc(a.note || '')}" placeholder="Booking link, what to bring…">`)}
+  ${a.done ? field('How was it?', `<div class="row" id="ara" style="gap:4px">${[1, 2, 3, 4, 5].map(n => `<button type="button" data-n="${n}" style="font-size:28px;color:${n <= (a.rating || 0) ? 'var(--warn)' : 'var(--line)'}" onclick="document.querySelectorAll('#ara button').forEach(b=>b.style.color=+b.dataset.n<=${n}?'var(--warn)':'var(--line)');document.getElementById('ara').dataset.v=${n}">★</button>`).join('')}</div>`) : ''}
+  <button class="btn block" onclick="saveAct('${id || ''}')">Save</button>
+  ${id ? `${a.done ? `<button class="btn soft block" style="margin-top:10px" onclick="actUndo('${id}')">Move back to Want to do</button>` : `<button class="btn soft block" style="margin-top:10px" onclick="actDone('${id}')">✓ We did it!</button>`}<button class="btn red block" style="margin-top:10px" onclick="confirmDel(()=>{delFrom('activities','${id}');D().events=D().events.filter(e=>e.id!=='act-${id}');DB.save()})">Delete</button>` : ''}`);
+  const r = document.getElementById('ara'); if (r) r.dataset.v = a.rating || 0; }
+function saveAct(id) { if (!val('at')) return toast('What is the activity?'); const t = document.querySelector('#aty .chip.on'), r = document.getElementById('ara');
+  const o = {title: val('at'), cat: t ? t.dataset.t : 'Other', place: val('ap'), cost: parseFloat(val('ac')) || '', date: val('ad'), note: val('an')}; if (r) o.rating = +r.dataset.v || 0;
+  D().activities = D().activities || []; if (!id) { id = uid(); D().activities.push({id, by: S().me, added: Date.now(), done: false, ...o}); act('🎯', `added "${o.title}" to activities`); } else Object.assign(D().activities.find(x => x.id === id), o);
+  syncActEvent(id); DB.save(); closeSheet(); render(); }
+// a planned activity shows in the calendar as an event with a fixed id, so it updates instead of duplicating
+function syncActEvent(id) { const a = D().activities.find(x => x.id === id), eid = 'act-' + id; D().events = D().events.filter(e => e.id !== eid);
+  if (a && a.date && !a.done) D().events.push({id: eid, title: `🎯 ${a.title}`, date: a.date, note: [a.place, a.note].filter(Boolean).join(' · '), by: a.by || S().me}); }
+function actDone(id) { const a = D().activities.find(x => x.id === id); a.done = true; a.doneAt = a.date && a.date <= todayISO() ? a.date : todayISO(); syncActEvent(id); act('🎉', `did "${a.title}"`); DB.save(); closeSheet(); st.actStat = 'done'; render(); actSheet(id); toast('Nice! Give it a rating'); }
+function actUndo(id) { const a = D().activities.find(x => x.id === id); a.done = false; a.doneAt = ''; syncActEvent(id); DB.save(); closeSheet(); st.actStat = 'todo'; render(); }
+function pickAct() { const l = D().activities.filter(a => !a.done); const a = l[Math.floor(Math.random() * l.length)], c = ACATS.find(x => x[0] === a.cat) || ACATS[7];
+  sheet(`<div style="text-align:center"><div style="font-size:56px;margin-top:6px">${c[1]}</div><h2 style="margin:8px 0 4px">${esc(a.title)}</h2><p class="muted">${esc([a.place, a.cost ? RM(a.cost) + ' each' : ''].filter(Boolean).join(' · '))}</p></div>
+  <div class="row" style="margin-top:14px"><button class="btn soft grow" onclick="pickAct()">🎲 Again</button><button class="btn grow" onclick="closeSheet();actSheet('${a.id}')">Plan it</button></div>`); }
+function planSheet(title, eid) { const ex = D().events.find(e => e.id === eid);
+  sheet(`<h2>Plan it</h2><p class="muted" style="margin-top:-6px">${esc(title)}</p><div class="grid2">${field('Date', `<input type="date" id="pd" value="${ex ? ex.date : todayISO()}">`)}${field('Time', `<input type="time" id="ph" value="${ex ? ex.time || '' : '21:00'}">`)}</div>
+  <button class="btn block" onclick="if(!val('pd'))return toast('Pick a date');D().events=D().events.filter(e=>e.id!=='${eid}');D().events.push({id:'${eid}',title:'${jq(title)}',date:val('pd'),time:val('ph'),by:S().me});DB.save();closeSheet();render();toast('Added to Calendar')">Add to Calendar</button>`); }
 
 /* ---------- start ---------- */
 render();
