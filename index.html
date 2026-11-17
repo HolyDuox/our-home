@@ -1016,7 +1016,7 @@ function saveGoal(id) { const t = parseFloat(val('gt')); if (!val('gn') || !t) r
   if (id) Object.assign(D().goals.find(x => x.id === id), o); else D().goals.push({id: uid(), log: [], ...o}); DB.save(); closeSheet(); render(); }
 
 /* ----- Expenses ----- */
-const ECATS = [['Food', '#f0a35e'], ['Groceries', '#5fbf8f'], ['Bills', '#8f6fd6'], ['Baby', '#e57fa5'], ['Transport', '#5b9be8'], ['Shopping', '#e6c34a'], ['Health', '#4fc1c9'], ['Other', '#8a9bb5']];
+const ECATS = [['Food', '#f0a35e'], ['Groceries', '#5fbf8f'], ['Bills', '#8f6fd6'], ['Baby', '#e57fa5'], ['Transport', '#5b9be8'], ['Shopping', '#e6c34a'], ['Health', '#4fc1c9'], ['Entertainment', '#ef7a6b'], ['Other', '#8a9bb5']];
 function expMove(n) { st.expM += n; if (st.expM < 0) { st.expM = 11; st.expY--; } if (st.expM > 11) { st.expM = 0; st.expY++; } render(); }
 const CCOL = {Loan: '#3d5a9e', Insurance: '#2a9d9d', Utilities: '#c99a1a', Childcare: '#c2557d', Subscription: '#6b4fbf', Savings: '#3f9a6a', Other: '#5f6f8c'};
 function monthCommitments(key) {
