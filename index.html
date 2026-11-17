@@ -2117,6 +2117,7 @@ const ITYPES = ['ASB', 'Tabung Haji', 'EPF / KWSP', 'Unit trust', 'Fixed deposit
 const g999 = () => Number(S().goldPrice || 0);
 const goldRate = p => (PURITY.find(x => x[0] === p) || PURITY[0])[1] / 0.999;      // price quoted for 999
 const goldGrams = g => Number(g.grams || 0) * goldRate(g.purity);   // 999 counts as full grams
+const g3 = n => String(+Number(n).toFixed(3));
 const gFmt = n => String(+Number(n).toFixed(2));
 const goldVal = g => g999() * goldRate(g.purity) * Number(g.grams || 0);
 const fullMonths = (a, b) => { const x = new Date(a + 'T00:00'), y = new Date(b + 'T00:00'); let m = (y.getFullYear() - x.getFullYear()) * 12 + y.getMonth() - x.getMonth(); if (y.getDate() < x.getDate()) m--; return Math.max(0, m); };
@@ -2146,11 +2147,11 @@ function vWealth() {
   <div class="card" onclick="goldPriceSheet()" style="margin-top:8px"><div class="row" style="justify-content:space-between"><div><div class="muted">Gold price per gram (999)</div>
     <div class="serif" style="font-size:26px">${price ? RM(price) : 'Not set'}</div></div><div style="text-align:right"><div class="muted">916: ${price ? RM(price * goldRate('916')) : '-'}</div>
     <div class="muted" style="font-size:12px">${ago === null ? 'Tap to enter today\'s price' : ago === 0 ? 'updated today' : `updated ${ago} day${ago > 1 ? 's' : ''} ago`}</div></div></div></div>
-  ${gold.length ? `<div class="card"><div class="row" style="justify-content:space-between"><span class="muted">${gFmt(grams)} g of 999 gold${Math.abs(actual - grams) > 0.005 ? ` (${gFmt(actual)} g actual)` : ''}</span><b>${price ? RM0(gTot) : '-'}</b></div>
+  ${gold.length ? `<div class="card"><div class="row" style="justify-content:space-between"><span class="muted">${gFmt(grams)} g (${g3(grams * 0.999)}) of 999 gold${Math.abs(actual - grams) > 0.005 ? ` · ${gFmt(actual)} g actual` : ''}</span><b>${price ? RM0(gTot) : '-'}</b></div>
     ${price && gCost ? `<div class="muted" style="font-size:13px;margin-top:4px">${costed.length < gold.length ? `${costed.length} of ${gold.length} with price paid: ` : ''}bought for ${RM0(gCost)}, now ${RM0(gCostVal)} · ${gCostVal >= gCost ? '▲' : '▼'} ${Math.abs(Math.round((gCostVal - gCost) / gCost * 100))}%</div>` : ''}</div>` : ''}
   <div class="list">${gold.map(g => { const v = goldVal(g), c = Number(g.cost || 0);
     return `<div class="item" onclick="goldSheet('${g.id}')"><div class="ico">🪙</div><div class="grow"><div class="t">${esc(g.name || 'Gold')}</div>
-    <div class="s">${[(g.purity === '999' ? `${gFmt(g.grams)} g` : `${gFmt(goldGrams(g))} g (${gFmt(g.grams)} g)`) + ` · ${g.purity}`, g.who && g.who !== 'both' ? whoName(g.who) : '', g.date ? fmtDate(g.date) : ''].filter(Boolean).map(esc).join(' · ')}</div></div>
+    <div class="s">${[(g.purity === '999' ? `${gFmt(g.grams)} g (${g3(g.grams * 0.999)})` : `${gFmt(goldGrams(g))} g (${gFmt(g.grams)} g)`) + ` · ${g.purity}`, g.who && g.who !== 'both' ? whoName(g.who) : '', g.date ? fmtDate(g.date) : ''].filter(Boolean).map(esc).join(' · ')}</div></div>
     <div style="text-align:right"><b>${price ? RM0(v) : '-'}</b>${price && c ? `<div class="s" style="color:${v >= c ? 'var(--good)' : 'var(--red)'}">${v >= c ? '+' : '-'}${RM0(Math.abs(v - c))}</div>` : ''}</div></div>`; }).join('') || '<div class="empty">No gold yet. Add bars, coins, jewellery or a gold account (e.g. 5 g of 999).</div>'}</div>
   <button class="btn soft block" style="margin-top:10px" onclick="goldSheet()">+ Add gold</button>
 
