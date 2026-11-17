@@ -1118,8 +1118,10 @@ function billArrangeList(bs) {
     <button class="btn soft sm" ${i ? '' : 'disabled style="opacity:.3"'} onclick="billMove('${b.id}',-1)" aria-label="Move up">▲</button><button class="btn soft sm" ${i < bs.length - 1 ? '' : 'disabled style="opacity:.3"'} onclick="billMove('${b.id}',1)" aria-label="Move down">▼</button></div>`).join('')}</div>
   <button class="btn soft block" style="margin-top:10px" onclick="billResetOrder()">Sort by due date</button>`;
 }
-function billSetOrder(ids) { const rest = [...D().bills].sort(billSort).filter(b => !ids.includes(b.id)); [...ids.map(id => D().bills.find(b => b.id === id)).filter(Boolean), ...rest].forEach((b, i) => { b.order = i; }); DB.save(); render(); }
-function billMove(id, d) { const ids = [...D().bills].filter(b => activeBill(b)).sort(billSort).map(b => b.id), i = ids.indexOf(id), j = i + d; if (i < 0 || j < 0 || j >= ids.length) return; [ids[i], ids[j]] = [ids[j], ids[i]]; billSetOrder(ids); }
+function billSetOrder(ids, keepId) { const el = keepId && document.querySelector(`#billArr [data-id="${keepId}"]`), top = el ? el.getBoundingClientRect().top : null, y = window.scrollY; const rest = [...D().bills].sort(billSort).filter(b => !ids.includes(b.id)); [...ids.map(id => D().bills.find(b => b.id === id)).filter(Boolean), ...rest].forEach((b, i) => { b.order = i; }); DB.save(); render();
+  // keep the screen where it was: the moved commitment stays under your finger
+  const nw = keepId && document.querySelector(`#billArr [data-id="${keepId}"]`); window.scrollTo(0, y); if (nw && top !== null) window.scrollBy(0, nw.getBoundingClientRect().top - top); }
+function billMove(id, d) { const ids = [...D().bills].filter(b => activeBill(b)).sort(billSort).map(b => b.id), i = ids.indexOf(id), j = i + d; if (i < 0 || j < 0 || j >= ids.length) return; [ids[i], ids[j]] = [ids[j], ids[i]]; billSetOrder(ids, id); }
 function billResetOrder() { D().bills.forEach(b => { delete b.order; }); DB.save(); render(); toast('Sorted by due date'); }
 function billDrag(e) {
   const row = e.target.closest('.item'), list = row && row.parentNode; if (!list) return; e.preventDefault();
@@ -1128,7 +1130,7 @@ function billDrag(e) {
   const move = ev => { lastY = ev.clientY; const after = [...list.children].filter(c => c !== row).find(c => { const r = c.getBoundingClientRect(); return lastY < r.top + r.height / 2; });
     const tgt = after || null; if (tgt !== row.nextSibling) { list.insertBefore(row, tgt); moved = true; } };
   const up = () => { cancelAnimationFrame(raf); document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); document.removeEventListener('pointercancel', up);
-    row.classList.remove('dragging'); if (moved) billSetOrder([...list.children].map(c => c.dataset.id)); };
+    row.classList.remove('dragging'); if (moved) billSetOrder([...list.children].map(c => c.dataset.id), row.dataset.id); };
   document.addEventListener('pointermove', move); document.addEventListener('pointerup', up); document.addEventListener('pointercancel', up);
 }
 function incomeSheet() { sheet(`<h2>Monthly income</h2><p class="muted" style="margin-top:-8px">Take-home pay after EPF and tax. Only used for the percentage; stays in your app.</p>
