@@ -255,6 +255,7 @@ const DB = {
     try { this.data = Object.assign(structuredClone(DEFAULT), JSON.parse(raw || localStorage.getItem(KEY) || '{}')); }
     catch (e) { this.data = structuredClone(DEFAULT); }
     this.data.settings = Object.assign({}, DEFAULT.settings, this.data.settings);
+    (this.data.expenses || []).forEach(e => { if (e.cat === 'Entertainment') e.cat = 'Fulfillment'; });   // renamed 2026-11-18
     ['Kitchen', 'Groceries'].forEach(old => { const ki = this.data.restockCats.indexOf(old); if (ki >= 0 && !this.data.restockCats.includes('Pantry')) { this.data.restockCats[ki] = 'Pantry'; this.data.restock.forEach(r => { if (r.cat === old) r.cat = 'Pantry'; }); } });
   },
   // Main copy lives in IndexedDB (no 5 MB cap). localStorage keeps a quick-start copy while it fits.
@@ -359,6 +360,7 @@ function syncLocalItem(coll, id) { // current local value of one row (undefined 
 }
 function syncApply(coll, id, data, deleted) {
   const d = D();
+  if (coll === 'expenses' && data && data.cat === 'Entertainment') data.cat = 'Fulfillment';   // old phones
   if (coll === 'settings') { if (!deleted && data) for (const sk of Object.keys(data)) if (!LOCAL_SETTINGS.includes(sk)) d.settings[sk] = data[sk]; return; }
   if (coll === 'kids') { d.kids = d.kids || []; const i = d.kids.findIndex(x => String(x.id) === id);
     if (deleted) { if (i >= 0) d.kids.splice(i, 1); if (d.settings.activeKid === id) d.settings.activeKid = (d.kids[0] || {}).id; return; }
@@ -557,7 +559,7 @@ function sheet(html) { document.getElementById('sheet').innerHTML = `<div class=
   hydrateImgs();
   const f = document.querySelector('.sheet input:not([type=date]):not([type=file]),.sheet textarea'); if (f && !f.value) setTimeout(() => f.focus(), 250); }
 function closeSheet() { document.getElementById('sheet').innerHTML = ''; if (SYNC.pendingRender) { SYNC.pendingRender = false; render(); } }
-const APP_VERSION = '2026.11.18-b';
+const APP_VERSION = '2026.11.18-c';
 const val = id => (document.getElementById(id)?.value ?? '').trim();
 // numbers typed with a comma: "5,5" -> 5.5 (decimal comma), "1,000" / "12,500.50" -> thousands
 const toNum = t => { t = String(t ?? '').trim().replace(/\s|RM/gi, ''); if (/^-?\d+,\d{1,2}$/.test(t) || /^-?\d+,\d{4,}$/.test(t)) t = t.replace(',', '.'); else t = t.replace(/,/g, ''); return parseFloat(t); };
@@ -1021,7 +1023,7 @@ function saveGoal(id) { const t = numv('gt'); if (!val('gn') || !t) return toast
   if (id) Object.assign(D().goals.find(x => x.id === id), o); else D().goals.push({id: uid(), log: [], ...o}); DB.save(); closeSheet(); render(); }
 
 /* ----- Expenses ----- */
-const ECATS = [['Food', '#f0a35e'], ['Groceries', '#5fbf8f'], ['Bills', '#8f6fd6'], ['Baby', '#e57fa5'], ['Transport', '#5b9be8'], ['Shopping', '#e6c34a'], ['Health', '#4fc1c9'], ['Entertainment', '#ef7a6b'], ['Other', '#8a9bb5']];
+const ECATS = [['Food', '#f0a35e'], ['Groceries', '#5fbf8f'], ['Bills', '#8f6fd6'], ['Baby', '#e57fa5'], ['Transport', '#5b9be8'], ['Shopping', '#e6c34a'], ['Health', '#4fc1c9'], ['Fulfillment', '#ef7a6b'], ['Other', '#8a9bb5']];
 function expMove(n) { st.expM += n; if (st.expM < 0) { st.expM = 11; st.expY--; } if (st.expM > 11) { st.expM = 0; st.expY++; } render(); }
 const CCOL = {Loan: '#3d5a9e', Insurance: '#2a9d9d', Utilities: '#c99a1a', Childcare: '#c2557d', Subscription: '#6b4fbf', Savings: '#3f9a6a', Other: '#5f6f8c'};
 function monthCommitments(key) {

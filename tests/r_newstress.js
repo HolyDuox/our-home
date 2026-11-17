@@ -1,4 +1,4 @@
-// Stress test for Wealth (gold + investments), commitment reordering and the Entertainment category
+// Stress test for Wealth (gold + investments), commitment reordering and the Fulfillment category
 const { chromium } = require('playwright'); const { open, NASTY } = require('./common');
 const res = []; const ok = (c, m) => { res.push([!!c, m]); console.log(c ? 'ok  ' : 'FAIL', m); };
 const bad = t => /NaN|Infinity|undefined|\[object/.test(t);
@@ -111,10 +111,10 @@ const bad = t => /NaN|Infinity|undefined|\[object/.test(t);
   // order is part of what syncs
   ok(await p.evaluate(() => { const m = syncCollect(); const r = [...m.values()].find(x => x.coll === 'bills' && x.data.order != null); return !!r; }), 'order is included in the synced data');
 
-  // ---- Entertainment ----
-  await p.evaluate(() => { const t = todayISO(); for (let i = 0; i < 500; i++) D().expenses.push({id: 'e' + i, amount: 1 + i % 40, date: t, cat: i % 3 ? 'Entertainment' : 'Food', who: i % 2 ? 'A' : 'B', note: 'x'}); D().expenses.push({id: 'eu', amount: 7, date: t, cat: 'Gaming', who: 'A', note: 'old unknown cat'}); DB.save(); go('money', 'Expenses'); });
-  t = await txt(); ok(/Entertainment/.test(t) && !bad(t), 'Entertainment in the chart with 500 expenses, unknown old category ok');
-  await p.evaluate(() => expSheet('e1')); ok(await p.evaluate(() => document.getElementById('xc').value) === 'Entertainment', 'editing an Entertainment expense keeps its category');
+  // ---- Fulfillment ----
+  await p.evaluate(() => { const t = todayISO(); for (let i = 0; i < 500; i++) D().expenses.push({id: 'e' + i, amount: 1 + i % 40, date: t, cat: i % 3 ? 'Fulfillment' : 'Food', who: i % 2 ? 'A' : 'B', note: 'x'}); D().expenses.push({id: 'eu', amount: 7, date: t, cat: 'Gaming', who: 'A', note: 'old unknown cat'}); DB.save(); go('money', 'Expenses'); });
+  t = await txt(); ok(/Fulfillment/.test(t) && !bad(t), 'Fulfillment in the chart with 500 expenses, unknown old category ok');
+  await p.evaluate(() => expSheet('e1')); ok(await p.evaluate(() => document.getElementById('xc').value) === 'Fulfillment', 'editing an Fulfillment expense keeps its category');
 
   // ---- small screen + dark mode ----
   for (const [w, sch] of [[320, 'light'], [390, 'dark']]) { const o = await open(b, {w, scheme: sch});
