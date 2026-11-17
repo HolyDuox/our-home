@@ -78,6 +78,7 @@ textarea{min-height:90px;resize:vertical}
 .chip .n{display:inline-block;margin-left:6px;background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:0 8px;font-size:13px}
 .chip.on .n{background:rgba(255,255,255,.2);color:inherit}
 .list{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.grip{touch-action:none;cursor:grab;font-size:22px;color:var(--ink2);padding:6px 4px;user-select:none;-webkit-user-select:none}.item.dragging{background:var(--accent-soft);box-shadow:var(--shadow);position:relative;z-index:2;border-radius:16px}
 .item{display:flex;gap:14px;align-items:flex-start;padding:15px 18px;border-bottom:1px solid var(--line)}
 .item:last-child{border-bottom:0}
 .item .t{font-weight:500;font-size:17px;word-break:break-word}
@@ -1078,7 +1079,7 @@ function vBills() {
 }
 function vMonthly(tabs) {
   const n = new Date(), key = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`;
-  const all = [...D().bills].sort((a, b) => a.dueDay - b.dueDay), bs = all.filter(b => activeBill(b)), ended = all.filter(b => !activeBill(b));
+  const all = [...D().bills].sort(billSort), bs = all.filter(b => activeBill(b)), ended = all.filter(b => !activeBill(b));
   const total = bs.reduce((s, b) => s + Number(b.amount || 0), 0);
   const unpaid = bs.filter(b => !(b.paid || []).includes(key)), unpaidAmt = unpaid.reduce((s, b) => s + Number(b.amount || 0), 0);
   const byType = CTYPES.map(([t, ic, col]) => [t, ic, col, bs.filter(b => (b.type || 'Utilities') === t).reduce((s, b) => s + Number(b.amount || 0), 0)]).filter(x => x[3] > 0);
@@ -1096,15 +1097,36 @@ function vMonthly(tabs) {
     <div class="bar"><i style="width:${Math.min(100, pct)}%;${level[0] === 'red' ? 'background:var(--red)' : level[0] === 'warn' ? 'background:var(--warn)' : ''}"></i></div><div class="muted" style="font-size:13px">${RM(total)} of ${RM(income)} household income · ${RM(Math.max(0, income - total))} left after commitments · tap to edit</div>`
     : `<div class="row"><div class="grow"><b>Compare with your income</b><div class="muted" style="font-size:13px">See what share of your pay goes to commitments</div></div><span class="tlink">Add ›</span></div>`}</div>
   ${bs.length ? `<div class="card stat" style="margin-top:12px;text-align:center">${[['A', S().nameA], ['B', S().nameB], ['both', 'Shared']].map(([w, l]) => `<div><div class="muted" style="font-size:13px">${esc(l)}</div><div style="font-weight:700;font-size:17px">${RM(payer(w)).replace('.00', '')}</div></div>`).join('')}</div>` : ''}
-  <h2>${n.toLocaleDateString('en-GB', {month:'long'})}</h2>
-  <div class="list">${bs.map(b => { const paid = (b.paid || []).includes(key), ml0 = monthsLeft(b), ml = ml0 === null ? null : Math.max(0, ml0 - (paid ? 1 : 0)), [t, ic] = ctype(b.type || 'Utilities');
+  <div class="row" style="justify-content:space-between;align-items:baseline"><h2>${st.billArrange ? 'Arrange your list' : n.toLocaleDateString('en-GB', {month:'long'})}</h2>${bs.length > 1 ? `<button class="tlink" onclick="st.billArrange=!st.billArrange;render()">${st.billArrange ? 'Done' : '↕ Arrange'}</button>` : ''}</div>
+  ${st.billArrange ? billArrangeList(bs) : `<div class="list">${bs.map(b => { const paid = (b.paid || []).includes(key), ml0 = monthsLeft(b), ml = ml0 === null ? null : Math.max(0, ml0 - (paid ? 1 : 0)), [t, ic] = ctype(b.type || 'Utilities');
     return `<div class="item ${paid ? 'done' : ''}"><button class="tick ${paid ? 'on' : ''}" onclick="payBill('${b.id}')">${paid ? I.check : ''}</button>
     <div class="grow" onclick="billSheet('${b.id}')"><div class="t">${ic} ${esc(b.name)}</div><div class="s">Due on the ${ordinal(b.dueDay)} · ${esc(whoName(b.payer || 'both') === 'Both' ? 'Shared' : whoName(b.payer))}</div>
     ${paid && (b.paidOn || {})[key] ? `<div class="s" style="color:var(--good)">✓ Paid on ${fmtDate(b.paidOn[key], {day: 'numeric', month: 'short'})}</div>` : ''}
     <div class="s" style="color:var(--accent)">${ml !== null ? `${ml} payment${ml === 1 ? '' : 's'} left · last payment ${fmtDate(b.endDate, {month: 'short', year: 'numeric'})}${b.balance ? ' · ' + RM(b.balance) + ' balance' : ''}` : 'Ongoing · no end date'}</div>
-    ${ml !== null && b.startDate ? (() => { const tot = Math.max(1, monthsBetween(b.startDate, b.endDate) + 1), done = Math.min(tot, tot - ml); return `<div class="bar" style="height:6px;margin:6px 0 2px"><i style="width:${Math.round(done / tot * 100)}%"></i></div><div class="s" style="font-size:12px">${done} of ${tot} paid · ${Math.round(done / tot * 100)}%</div>`; })() : ''}</div><b>${RM(b.amount)}</b></div>`; }).join('') || '<div class="empty">Nothing yet. Add your house or car loan, insurance, electricity, internet, phone, nursery fees…</div>'}</div>
+    ${ml !== null && b.startDate ? (() => { const tot = Math.max(1, monthsBetween(b.startDate, b.endDate) + 1), done = Math.min(tot, tot - ml); return `<div class="bar" style="height:6px;margin:6px 0 2px"><i style="width:${Math.round(done / tot * 100)}%"></i></div><div class="s" style="font-size:12px">${done} of ${tot} paid · ${Math.round(done / tot * 100)}%</div>`; })() : ''}</div><b>${RM(b.amount)}</b></div>`; }).join('') || '<div class="empty">Nothing yet. Add your house or car loan, insurance, electricity, internet, phone, nursery fees…</div>'}</div>`}
   ${ended.length ? `<h2>Finished 🎉</h2><div class="list">${ended.map(b => `<div class="item done" onclick="billSheet('${b.id}')"><div class="grow"><div class="t">${ctype(b.type)[1]} ${esc(b.name)}</div><div class="s">Ended ${fmtDate(b.endDate, {month: 'short', year: 'numeric'})} · ${RM(b.amount)}/month freed up</div></div></div>`).join('')}</div>` : ''}
   <button class="fab" onclick="billSheet()">+ Monthly payment</button>`;
+}
+const billSort = (a, b) => (a.order ?? 1e9) - (b.order ?? 1e9) || a.dueDay - b.dueDay;
+function billArrangeList(bs) {
+  return `<p class="muted" style="font-size:13px;margin:-4px 4px 8px">Hold ⠿ and drag, or use the arrows. The order is shared with both phones.</p>
+  <div class="list" id="billArr">${bs.map((b, i) => `<div class="item arr" data-id="${b.id}" style="align-items:center"><span class="grip" onpointerdown="billDrag(event)" aria-label="Drag">⠿</span>
+    <div class="grow"><div class="t">${ctype(b.type || 'Utilities')[1]} ${esc(b.name)}</div><div class="s">Due on the ${ordinal(b.dueDay)} · ${RM(b.amount)}</div></div>
+    <button class="btn soft sm" ${i ? '' : 'disabled style="opacity:.3"'} onclick="billMove('${b.id}',-1)" aria-label="Move up">▲</button><button class="btn soft sm" ${i < bs.length - 1 ? '' : 'disabled style="opacity:.3"'} onclick="billMove('${b.id}',1)" aria-label="Move down">▼</button></div>`).join('')}</div>
+  <button class="btn soft block" style="margin-top:10px" onclick="billResetOrder()">Sort by due date</button>`;
+}
+function billSetOrder(ids) { const rest = [...D().bills].sort(billSort).filter(b => !ids.includes(b.id)); [...ids.map(id => D().bills.find(b => b.id === id)).filter(Boolean), ...rest].forEach((b, i) => { b.order = i; }); DB.save(); render(); }
+function billMove(id, d) { const ids = [...D().bills].filter(b => activeBill(b)).sort(billSort).map(b => b.id), i = ids.indexOf(id), j = i + d; if (i < 0 || j < 0 || j >= ids.length) return; [ids[i], ids[j]] = [ids[j], ids[i]]; billSetOrder(ids); }
+function billResetOrder() { D().bills.forEach(b => { delete b.order; }); DB.save(); render(); toast('Sorted by due date'); }
+function billDrag(e) {
+  const row = e.target.closest('.item'), list = row && row.parentNode; if (!list) return; e.preventDefault();
+  row.classList.add('dragging'); let moved = false, raf = 0, lastY = e.clientY;
+  const scroll = () => { if (lastY < 90) window.scrollBy(0, -8); else if (lastY > innerHeight - 140) window.scrollBy(0, 8); raf = requestAnimationFrame(scroll); }; raf = requestAnimationFrame(scroll);
+  const move = ev => { lastY = ev.clientY; const after = [...list.children].filter(c => c !== row).find(c => { const r = c.getBoundingClientRect(); return lastY < r.top + r.height / 2; });
+    const tgt = after || null; if (tgt !== row.nextSibling) { list.insertBefore(row, tgt); moved = true; } };
+  const up = () => { cancelAnimationFrame(raf); document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); document.removeEventListener('pointercancel', up);
+    row.classList.remove('dragging'); if (moved) billSetOrder([...list.children].map(c => c.dataset.id)); };
+  document.addEventListener('pointermove', move); document.addEventListener('pointerup', up); document.addEventListener('pointercancel', up);
 }
 function incomeSheet() { sheet(`<h2>Monthly income</h2><p class="muted" style="margin-top:-8px">Take-home pay after EPF and tax. Only used for the percentage; stays in your app.</p>
   <div class="grid2">${field(esc(S().nameA), `<input id="ia" inputmode="decimal" value="${S().incomeA || ''}" placeholder="RM">`)}${field(esc(S().nameB), `<input id="ib" inputmode="decimal" value="${S().incomeB || ''}" placeholder="RM">`)}</div>
@@ -2094,6 +2116,8 @@ const PURITY = [['999', 0.999, '999 (24K)'], ['916', 0.916, '916 (22K)'], ['835'
 const ITYPES = ['ASB', 'Tabung Haji', 'EPF / KWSP', 'Unit trust', 'Fixed deposit', 'PRS', 'Stocks', 'Other'];
 const g999 = () => Number(S().goldPrice || 0);
 const goldRate = p => (PURITY.find(x => x[0] === p) || PURITY[0])[1] / 0.999;      // price quoted for 999
+const goldGrams = g => Number(g.grams || 0) * goldRate(g.purity);   // 999 counts as full grams
+const gFmt = n => String(+Number(n).toFixed(2));
 const goldVal = g => g999() * goldRate(g.purity) * Number(g.grams || 0);
 const fullMonths = (a, b) => { const x = new Date(a + 'T00:00'), y = new Date(b + 'T00:00'); let m = (y.getFullYear() - x.getFullYear()) * 12 + y.getMonth() - x.getMonth(); if (y.getDate() < x.getDate()) m--; return Math.max(0, m); };
 // balance after n months: monthly compounding, contribution at the end of each month
@@ -2106,7 +2130,7 @@ const RM0 = n => 'RM' + Math.round(n).toLocaleString('en-MY');
 function vWealth() {
   D().gold = D().gold || []; D().investments = D().investments || [];
   const gold = D().gold, inv = D().investments, price = g999();
-  const grams = gold.reduce((s, g) => s + Number(g.grams || 0) * goldRate(g.purity) * 0.999, 0);
+  const grams = gold.reduce((s, g) => s + goldGrams(g), 0), actual = gold.reduce((s, g) => s + Number(g.grams || 0), 0);
   const gTot = gold.reduce((s, g) => s + goldVal(g), 0), costed = gold.filter(g => Number(g.cost) > 0), gCost = costed.reduce((s, g) => s + Number(g.cost), 0), gCostVal = costed.reduce((s, g) => s + goldVal(g), 0);
   const iTot = inv.reduce((s, i) => s + invNow(i), 0), iPaid = inv.reduce((s, i) => s + invPaid(i), 0), iMon = inv.reduce((s, i) => s + Number(i.monthly || 0), 0);
   const tot = gTot + iTot, gain = (price ? gCostVal - gCost : 0) + iTot - iPaid, tracked = (price ? gCost : 0) + iPaid;
@@ -2122,11 +2146,11 @@ function vWealth() {
   <div class="card" onclick="goldPriceSheet()" style="margin-top:8px"><div class="row" style="justify-content:space-between"><div><div class="muted">Gold price per gram (999)</div>
     <div class="serif" style="font-size:26px">${price ? RM(price) : 'Not set'}</div></div><div style="text-align:right"><div class="muted">916: ${price ? RM(price * goldRate('916')) : '-'}</div>
     <div class="muted" style="font-size:12px">${ago === null ? 'Tap to enter today\'s price' : ago === 0 ? 'updated today' : `updated ${ago} day${ago > 1 ? 's' : ''} ago`}</div></div></div></div>
-  ${gold.length ? `<div class="card"><div class="row" style="justify-content:space-between"><span class="muted">${grams.toFixed(2)} g pure gold</span><b>${price ? RM0(gTot) : '-'}</b></div>
+  ${gold.length ? `<div class="card"><div class="row" style="justify-content:space-between"><span class="muted">${gFmt(grams)} g of 999 gold${Math.abs(actual - grams) > 0.005 ? ` (${gFmt(actual)} g actual)` : ''}</span><b>${price ? RM0(gTot) : '-'}</b></div>
     ${price && gCost ? `<div class="muted" style="font-size:13px;margin-top:4px">${costed.length < gold.length ? `${costed.length} of ${gold.length} with price paid: ` : ''}bought for ${RM0(gCost)}, now ${RM0(gCostVal)} · ${gCostVal >= gCost ? '▲' : '▼'} ${Math.abs(Math.round((gCostVal - gCost) / gCost * 100))}%</div>` : ''}</div>` : ''}
   <div class="list">${gold.map(g => { const v = goldVal(g), c = Number(g.cost || 0);
     return `<div class="item" onclick="goldSheet('${g.id}')"><div class="ico">🪙</div><div class="grow"><div class="t">${esc(g.name || 'Gold')}</div>
-    <div class="s">${[`${Number(g.grams)} g · ${g.purity}`, g.who && g.who !== 'both' ? whoName(g.who) : '', g.date ? fmtDate(g.date) : ''].filter(Boolean).map(esc).join(' · ')}</div></div>
+    <div class="s">${[(g.purity === '999' ? `${gFmt(g.grams)} g` : `${gFmt(goldGrams(g))} g (${gFmt(g.grams)} g)`) + ` · ${g.purity}`, g.who && g.who !== 'both' ? whoName(g.who) : '', g.date ? fmtDate(g.date) : ''].filter(Boolean).map(esc).join(' · ')}</div></div>
     <div style="text-align:right"><b>${price ? RM0(v) : '-'}</b>${price && c ? `<div class="s" style="color:${v >= c ? 'var(--good)' : 'var(--red)'}">${v >= c ? '+' : '-'}${RM0(Math.abs(v - c))}</div>` : ''}</div></div>`; }).join('') || '<div class="empty">No gold yet. Add bars, coins, jewellery or a gold account (e.g. 5 g of 999).</div>'}</div>
   <button class="btn soft block" style="margin-top:10px" onclick="goldSheet()">+ Add gold</button>
 
