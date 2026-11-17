@@ -28,3 +28,14 @@ All scripts pass, 0 page errors. Log: rerun-2026-11-12.log
 - Real iPhone Safari and Red Magic Chrome (tests use desktop Chromium engine)
 - Two phones syncing at the same time (Supabase), offline then back online
 - Real push notifications
+
+## Run 3 — 2026-11-18 (Wealth, gold grams, commitment reordering, Entertainment)
+New suite `r_newstress.js` (46 checks): gold price/weight validation, no-price state, 1,000,000 g / 0.001 g / unknown purity, weird names,
+investment maths (0%, 12% monthly compounding, ASB example, 31st/future/1970 start dates, 100%/yr extreme), investment <-> Commitment link,
+300 gold + 300 investments (82 ms render), 80 commitments with 200 random moves + 6 long mouse drags with auto-scroll, tap without drag,
+new item from other phone, clashing order numbers from two phones, reset to due date, order kept after reload and included in sync,
+500 Entertainment expenses, 320px and dark mode.
+Found and fixed:
+1. Numbers typed with a decimal comma (5,5 on some Android keyboards) were read as 5. Now all money/number fields read 5,5 as 5.5 and 1,000 as 1000.
+2. Very small gold weights (0.001 g) displayed as 0 g. Now shows 3 decimals under 1 g.
+Full suite re-run after fixes: all clean (smoke, heavy, storage, hostile 3447 clicks, edge dates, monkey 3000 steps, PIN/backup, sync 16 checks, plans, wealth, arrange, 46/46 new).

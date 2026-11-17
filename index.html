@@ -558,6 +558,9 @@ function sheet(html) { document.getElementById('sheet').innerHTML = `<div class=
   const f = document.querySelector('.sheet input:not([type=date]):not([type=file]),.sheet textarea'); if (f && !f.value) setTimeout(() => f.focus(), 250); }
 function closeSheet() { document.getElementById('sheet').innerHTML = ''; if (SYNC.pendingRender) { SYNC.pendingRender = false; render(); } }
 const val = id => (document.getElementById(id)?.value ?? '').trim();
+// numbers typed with a comma: "5,5" -> 5.5 (decimal comma), "1,000" / "12,500.50" -> thousands
+const toNum = t => { t = String(t ?? '').trim().replace(/\s|RM/gi, ''); if (/^-?\d+,\d{1,2}$/.test(t) || /^-?\d+,\d{4,}$/.test(t)) t = t.replace(',', '.'); else t = t.replace(/,/g, ''); return parseFloat(t); };
+const numv = id => toNum(val(id));
 const field = (label, inner) => `<div class="field"><label>${label}</label>${inner}</div>`;
 function whoSelect(id, cur) { cur = cur || S().me; return `<select id="${id}"><option value="A" ${cur==='A'?'selected':''}>${esc(S().nameA)}</option><option value="B" ${cur==='B'?'selected':''}>${esc(S().nameB)}</option><option value="both" ${cur==='both'?'selected':''}>Both</option></select>`; }
 const whoName = w => w === 'A' ? S().nameA : w === 'B' ? S().nameB : w === 'both' ? 'Both' : (w || '');
@@ -986,7 +989,7 @@ function wishSheet(id) { const w = D().wishes.find(x => x.id === id) || {name: '
   <div class="grid2">${field('Type', `<select id="wc">${WCATS.map(c => `<option ${c[0] === w.cat ? 'selected' : ''}>${c[0]}</option>`).join('')}</select>`)}${field('Estimated RM', `<input id="wp" inputmode="decimal" value="${w.price}">`)}</div>
   <label class="row" style="margin:4px 4px 16px"><input type="checkbox" id="wd" ${w.done ? 'checked' : ''} style="width:auto"> Fulfilled 🎉</label>
   <button class="btn block" onclick="saveWish('${id || ''}')">Save</button>${id ? `<button class="btn red block" style="margin-top:10px" onclick="confirmDel(()=>delFrom('wishes','${id}'))">Delete</button>` : ''}`); }
-function saveWish(id) { if (!val('wn')) return toast('Name the wish'); const o = {name: val('wn'), cat: val('wc'), price: parseFloat(val('wp')) || 0, done: document.getElementById('wd').checked};
+function saveWish(id) { if (!val('wn')) return toast('Name the wish'); const o = {name: val('wn'), cat: val('wc'), price: numv('wp') || 0, done: document.getElementById('wd').checked};
   if (id) Object.assign(D().wishes.find(x => x.id === id), o); else D().wishes.push({id: uid(), by: S().me, ...o}); DB.save(); closeSheet(); render(); }
 
 /* ----- Savings goals ----- */
@@ -1007,13 +1010,13 @@ function vGoals() {
   <button class="fab" onclick="goalSheet()">+ New goal</button>`;
 }
 function addSave(id, amt) { const g = D().goals.find(x => x.id === id); g.saved = Math.max(0, g.saved + amt); (g.log = g.log || []).push({amt, at: Date.now(), by: S().me}); DB.save(); render(); toast((amt > 0 ? 'Added ' : 'Withdrew ') + RM(Math.abs(amt))); }
-function saveAmtSheet(id) { sheet(`<h2>Add or withdraw</h2>${field('Amount (RM)', '<input id="sa" inputmode="decimal">')}<div class="row"><button class="btn red grow" onclick="addSave('${id}',-(parseFloat(val('sa'))||0));closeSheet()">Withdraw</button><button class="btn grow" onclick="addSave('${id}',parseFloat(val('sa'))||0);closeSheet()">Add</button></div>`); }
+function saveAmtSheet(id) { sheet(`<h2>Add or withdraw</h2>${field('Amount (RM)', '<input id="sa" inputmode="decimal">')}<div class="row"><button class="btn red grow" onclick="addSave('${id}',-(numv('sa')||0));closeSheet()">Withdraw</button><button class="btn grow" onclick="addSave('${id}',numv('sa')||0);closeSheet()">Add</button></div>`); }
 function goalSheet(id) { const g = D().goals.find(x => x.id === id) || {name: '', target: '', saved: 0, date: ''};
   sheet(`<h2>${id ? 'Edit goal' : 'New goal'}</h2>${field('Goal', `<input id="gn" value="${esc(g.name)}" placeholder="e.g. Japan, Baby education">`)}
   <div class="grid2">${field('Target RM', `<input id="gt" inputmode="decimal" value="${g.target}">`)}${field('Saved so far RM', `<input id="gs" inputmode="decimal" value="${g.saved}">`)}</div>
   ${field('Target date', `<input type="date" id="gdt" value="${g.date}">`)}
   <button class="btn block" onclick="saveGoal('${id || ''}')">Save</button>${id ? `<button class="btn red block" style="margin-top:10px" onclick="confirmDel(()=>delFrom('goals','${id}'))">Delete</button>` : ''}`); }
-function saveGoal(id) { const t = parseFloat(val('gt')); if (!val('gn') || !t) return toast('Add a name and target'); const o = {name: val('gn'), target: t, saved: parseFloat(val('gs')) || 0, date: val('gdt')};
+function saveGoal(id) { const t = numv('gt'); if (!val('gn') || !t) return toast('Add a name and target'); const o = {name: val('gn'), target: t, saved: numv('gs') || 0, date: val('gdt')};
   if (id) Object.assign(D().goals.find(x => x.id === id), o); else D().goals.push({id: uid(), log: [], ...o}); DB.save(); closeSheet(); render(); }
 
 /* ----- Expenses ----- */
@@ -1064,7 +1067,7 @@ function expSheet(id) { const e = D().expenses.find(x => x.id === id) || {amount
   <div class="grid2">${field('Category', `<select id="xc">${ECATS.map(c => `<option ${c[0] === e.cat ? 'selected' : ''}>${c[0]}</option>`).join('')}</select>`)}${field('Paid by', `<select id="xw"><option value="A" ${e.who === 'A' ? 'selected' : ''}>${esc(S().nameA)}</option><option value="B" ${e.who === 'B' ? 'selected' : ''}>${esc(S().nameB)}</option></select>`)}</div>
   ${field('Note', `<input id="xn" value="${esc(e.note)}" placeholder="e.g. Lunch, Petrol">`)}
   <button class="btn block" onclick="saveExp('${id || ''}')">Save</button>${id ? `<button class="btn red block" style="margin-top:10px" onclick="confirmDel(()=>delFrom('expenses','${id}'))">Delete</button>` : ''}`); }
-function saveExp(id) { const a = parseFloat(val('xa')); if (!a) return toast('Enter an amount'); const o = {amount: a, date: val('xd'), cat: val('xc'), who: val('xw'), note: val('xn')};
+function saveExp(id) { const a = numv('xa'); if (!a) return toast('Enter an amount'); const o = {amount: a, date: val('xd'), cat: val('xc'), who: val('xw'), note: val('xn')};
   if (id) Object.assign(D().expenses.find(x => x.id === id), o); else D().expenses.push({id: uid(), ...o}); DB.save(); closeSheet(); render(); }
 
 /* ----- Bills ----- */
@@ -1130,7 +1133,7 @@ function billDrag(e) {
 }
 function incomeSheet() { sheet(`<h2>Monthly income</h2><p class="muted" style="margin-top:-8px">Take-home pay after EPF and tax. Only used for the percentage; stays in your app.</p>
   <div class="grid2">${field(esc(S().nameA), `<input id="ia" inputmode="decimal" value="${S().incomeA || ''}" placeholder="RM">`)}${field(esc(S().nameB), `<input id="ib" inputmode="decimal" value="${S().incomeB || ''}" placeholder="RM">`)}</div>
-  <button class="btn block" onclick="S().incomeA=parseFloat(val('ia'))||0;S().incomeB=parseFloat(val('ib'))||0;DB.save();closeSheet();render()">Save</button>`); }
+  <button class="btn block" onclick="S().incomeA=numv('ia')||0;S().incomeB=numv('ib')||0;DB.save();closeSheet();render()">Save</button>`); }
 const ordinal = n => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
 function payBill(id) { const b = D().bills.find(x => x.id === id), n = new Date(), key = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`; b.paid = b.paid || [];
   if (b.paid.includes(key)) { b.paid = b.paid.filter(k => k !== key); D().expenses = D().expenses.filter(e => e.billKey !== b.id + key); }
@@ -1153,7 +1156,7 @@ function billSheet(id) { const b = D().bills.find(x => x.id === id) || {name: ''
   ${field('Remind me', remindSelect(b.remind, 'bill'))}
   <button class="btn block" onclick="saveBill('${id || ''}')">Save</button>${id ? `<button class="btn red block" style="margin-top:10px" onclick="confirmDel(()=>delFrom('bills','${id}'))">Delete</button>` : ''}`); }
 function saveBill(id) { if (!val('bn')) return toast('Give it a name'); const t = document.querySelector('#btype .chip.on');
-  const o = {name: val('bn'), type: t ? t.dataset.t : 'Utilities', amount: parseFloat(val('ba')) || 0, dueDay: Math.min(31, Math.max(1, parseInt(val('bd')) || 1)), payer: val('bp'), endDate: val('be'), startDate: val('bs'), balance: parseFloat(val('bb')) || 0, remind: val('rmd')};
+  const o = {name: val('bn'), type: t ? t.dataset.t : 'Utilities', amount: numv('ba') || 0, dueDay: Math.min(31, Math.max(1, parseInt(val('bd')) || 1)), payer: val('bp'), endDate: val('be'), startDate: val('bs'), balance: numv('bb') || 0, remind: val('rmd')};
   if (id) Object.assign(D().bills.find(x => x.id === id), o); else D().bills.push({id: uid(), paid: [], ...o}); DB.save(); closeSheet(); render(); }
 
 /* ----- Settings ----- */
@@ -1426,7 +1429,7 @@ hook('saveTask', id => !id && val('tt') && ['📝', `added task “${val('tt')}�
 hook('saveEvent', id => !id && val('et') && val('ed') && ['📅', `added “${val('et')}” on ${fmtDate(val('ed'), {day: 'numeric', month: 'short'})}`]);
 hook('payBill', id => { const b = D().bills.find(x => x.id === id), n = new Date(), k = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`; return b && !(b.paid || []).includes(k) && ['💡', `paid ${b.name}${b.amount ? ' (' + RM(b.amount) + ')' : ''}`]; });
 hook('saveBill', id => !id && val('bn') && ['📌', `added commitment ${val('bn')}`]);
-hook('saveExp', id => !id && parseFloat(val('xa')) && ['🧾', `spent ${RM(parseFloat(val('xa')))} on ${val('xn') || val('xc')}`]);
+hook('saveExp', id => !id && numv('xa') && ['🧾', `spent ${RM(numv('xa'))} on ${val('xn') || val('xc')}`]);
 hook('addSave', (id, amt) => { const g = D().goals.find(x => x.id === id); return g && amt && ['💰', `${amt > 0 ? 'added' : 'withdrew'} ${RM(Math.abs(amt))} ${amt > 0 ? 'to' : 'from'} ${g.name}`]; });
 hook('saveMem', () => pendingImg && ['📸', `added a memory “${val('mt') || 'Untitled'}”`]);
 hook('logBaby', o => ['👶', `logged ${(o.sub || o.type).toLowerCase()}`]);
@@ -1578,7 +1581,7 @@ function schedSheet(id) {
   <button class="btn block" onclick="saveSched('${id || ''}')">Save</button>${id ? `<button class="btn red block" style="margin-top:10px" onclick="confirmDel(()=>delFrom('scheduled','${id}'))">Delete</button>` : ''}`);
 }
 function saveSched(id) { if (!val('sn') || !val('snx')) return toast('Add a name and date'); const t = document.querySelector('#stype .chip.on');
-  const o = {name: val('sn'), type: t ? t.dataset.t : 'Other', amount: parseFloat(val('sa2')) || 0, next: val('snx'), freq: val('sf'), payer: val('sp'), remind: val('rmd')};
+  const o = {name: val('sn'), type: t ? t.dataset.t : 'Other', amount: numv('sa2') || 0, next: val('snx'), freq: val('sf'), payer: val('sp'), remind: val('rmd')};
   D().scheduled = D().scheduled || [];
   if (id) Object.assign(D().scheduled.find(s => s.id === id), o); else { D().scheduled.push({id: uid(), done: false, ...o}); act('🗓️', `scheduled ${o.name} on ${fmtDate(o.next, {day: 'numeric', month: 'short'})}`); }
   DB.save(); closeSheet(); render(); }
@@ -1649,7 +1652,7 @@ function carSheet(id) {
 function saveCar(id) { if (!val('cn')) return toast('Name the car'); D().cars = D().cars || [];
   const o = {name: val('cn'), plate: val('cp').toUpperCase(), mileage: parseInt(val('cm')) || 0, everyKm: parseInt(val('cek')) || 0, everyMonths: parseInt(val('cem')) || 0, payer: val('cpy')};
   let car; if (id) { car = D().cars.find(x => x.id === id); if (o.mileage !== car.mileage) o.mileageAt = todayISO(); Object.assign(car, o); } else { car = {id: uid(), mileageAt: todayISO(), ...o}; D().cars.push(car); st.carSel = car.id; act('🚗', `added car ${o.name}`); }
-  syncCarSched(car, 'rt', val('crt'), parseFloat(val('crta'))); syncCarSched(car, 'ins', val('cin'), parseFloat(val('cina')));
+  syncCarSched(car, 'rt', val('crt'), numv('crta')); syncCarSched(car, 'ins', val('cin'), numv('cina'));
   DB.save(); closeSheet(); render(); }
 function mileSheet(id) { const c = D().cars.find(x => x.id === id);
   sheet(`<h2>Update mileage</h2><p class="muted" style="margin-top:-8px">Last: ${kmf(c.mileage)}</p>${field('Odometer now (km)', `<input id="mm" inputmode="numeric" value="${c.mileage || ''}">`)}
@@ -1662,7 +1665,7 @@ function serviceSheet(carId, id) { const c = D().cars.find(x => x.id === carId),
   ${!id ? `<label class="row" style="margin:4px 4px 14px"><input type="checkbox" id="sx2" checked style="width:auto"> Add the cost to Expenses (Transport)</label>` : ''}
   <button class="btn block" onclick="saveService('${carId}','${id || ''}')">Save</button>${id ? `<button class="btn red block" style="margin-top:10px" onclick="confirmDel(()=>delFrom('services','${id}'))">Delete</button>` : ''}`); }
 function saveService(carId, id) { D().services = D().services || []; const c = D().cars.find(x => x.id === carId);
-  const o = {carId, note: val('sn2'), date: val('sd2') || todayISO(), mileage: parseInt(val('sm2')) || 0, workshop: val('sw2'), cost: parseFloat(val('sc2')) || 0};
+  const o = {carId, note: val('sn2'), date: val('sd2') || todayISO(), mileage: parseInt(val('sm2')) || 0, workshop: val('sw2'), cost: numv('sc2') || 0};
   if (id) Object.assign(D().services.find(s => s.id === id), o);
   else { D().services.push({id: uid(), ...o}); if (o.cost && document.getElementById('sx2')?.checked) D().expenses.push({id: uid(), amount: o.cost, cat: 'Transport', who: c.payer === 'B' ? 'B' : c.payer === 'A' ? 'A' : S().me, date: o.date, note: `${c.name} service${o.note ? ': ' + o.note : ''}`}); act('🔧', `logged a service for ${c.name}${o.cost ? ' (' + RM(o.cost) + ')' : ''}`); }
   if (o.mileage > (c.mileage || 0)) { c.mileage = o.mileage; c.mileageAt = o.date; }
@@ -1909,7 +1912,7 @@ function saveClass(kid, id) { const k = kidById(kid); if (!val('kct')) return to
   const days = [...document.querySelectorAll('#kcd .chip.on')].map(b => +b.dataset.d); if (!days.length) return toast('Pick at least one day');
   const o = {title: val('kct'), days, time: val('kcs'), end: val('kce'), place: val('kcp')};
   k.classes = k.classes || []; if (id) Object.assign(k.classes.find(x => x.id === id), o); else { id = uid(); k.classes.push({id, ...o}); act('🎒', `added ${o.title} for ${k.name}`); }
-  const fee = parseFloat(val('kcf')) || 0, bid = 'cls-' + id, b = D().bills.find(x => x.id === bid);
+  const fee = numv('kcf') || 0, bid = 'cls-' + id, b = D().bills.find(x => x.id === bid);
   if (fee) { const bo = {name: `${k.name}: ${o.title}`, type: 'Education', amount: fee, dueDay: Math.min(31, Math.max(1, parseInt(val('kcy')) || 1)), payer: 'both', kidId: k.id};
     if (b) Object.assign(b, bo); else D().bills.push({id: bid, paid: [], remind: '1d', ...bo}); }
   else if (b) D().bills = D().bills.filter(x => x.id !== bid);
@@ -1929,7 +1932,7 @@ function feeSheet(kid) { const k = kidById(kid);
   <div id="kfdw" style="display:none">${field('Pay on day of month', '<input id="kfd" inputmode="numeric" value="1">')}</div>
   <div id="kfnw">${field('Next due date', `<input type="date" id="kfx" value="${todayISO()}">`)}</div>
   <button class="btn block" onclick="saveFee('${kid}')">Save</button>`); }
-function saveFee(kid) { const k = kidById(kid), name = val('kfn'), amount = parseFloat(val('kfa')) || 0, f = val('kff'); if (!name) return toast('What is the fee for?');
+function saveFee(kid) { const k = kidById(kid), name = val('kfn'), amount = numv('kfa') || 0, f = val('kff'); if (!name) return toast('What is the fee for?');
   const full = `${k.name}: ${name}`;
   if (f === 'monthly') D().bills.push({id: uid(), paid: [], name: full, type: 'Education', amount, dueDay: Math.min(31, Math.max(1, parseInt(val('kfd')) || 1)), payer: 'both', remind: '1d', kidId: k.id});
   else { D().scheduled = D().scheduled || []; D().scheduled.push({id: uid(), done: false, name: full, type: 'Education', amount, next: val('kfx') || todayISO(), freq: f, payer: 'both', remind: '1w', kidId: k.id}); }
@@ -1966,14 +1969,14 @@ function choreSheet(kid, id) { const k = kidById(kid), c = (k.chores || []).find
   <div class="grid2">${field(k.unit === 'stars' ? 'Stars' : 'Reward RM', `<input id="khr" inputmode="decimal" value="${c.reward}">`)}${field('How often', `<select id="khp">${Object.entries(CREP).map(([v, l]) => `<option value="${v}" ${c.repeat === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`)}</div>
   <button class="btn block" onclick="saveChore('${kid}','${id || ''}')">Save</button>${id ? `<button class="btn red block" style="margin-top:10px" onclick="confirmDel(()=>{const k=kidById('${kid}');k.chores=k.chores.filter(x=>x.id!=='${id}');DB.save()})">Delete</button>` : ''}`); }
 function saveChore(kid, id) { const k = kidById(kid); if (!val('kht')) return toast('What is the chore?');
-  const o = {title: val('kht'), reward: parseFloat(val('khr')) || 0, repeat: val('khp')}; k.chores = k.chores || [];
+  const o = {title: val('kht'), reward: numv('khr') || 0, repeat: val('khp')}; k.chores = k.chores || [];
   if (id) Object.assign(k.chores.find(x => x.id === id), o); else k.chores.push({id: uid(), ...o}); DB.save(); closeSheet(); render(); }
 function payoutSheet(kid) { const k = kidById(kid), bal = Math.max(0, kidEarned(k) - kidPaid(k)), stars = k.unit === 'stars';
   sheet(`<h2>${stars ? 'Use stars' : 'Pay out'}</h2><p class="muted" style="margin-top:-6px">${esc(k.name)} has ${kamt(k, Math.round(bal * 100) / 100)}.</p>
   <div class="grid2">${field(stars ? 'Stars' : 'Amount RM', `<input id="kpa" inputmode="decimal" value="${Math.round(bal * 100) / 100}">`)}${field('For', `<input id="kpn" placeholder="${stars ? 'e.g. Ice cream, new toy' : 'e.g. Weekly pocket money'}">`)}</div>
   ${stars ? '' : `<label class="row" style="margin:4px 0 14px;gap:10px"><input type="checkbox" id="kpe" checked style="width:auto"> Record in Expenses</label>`}
   <button class="btn block" onclick="savePayout('${kid}')">Save</button>`); }
-function savePayout(kid) { const k = kidById(kid), a = parseFloat(val('kpa')) || 0; if (!a) return toast('Enter an amount');
+function savePayout(kid) { const k = kidById(kid), a = numv('kpa') || 0; if (!a) return toast('Enter an amount');
   k.payouts = k.payouts || []; k.payouts.push({id: uid(), amount: a, date: todayISO(), note: val('kpn')});
   if (k.unit !== 'stars' && document.getElementById('kpe')?.checked) D().expenses.push({id: uid(), amount: a, date: todayISO(), cat: 'Baby', who: S().me, note: `${k.name} pocket money${val('kpn') ? ' · ' + val('kpn') : ''}`});
   act(k.unit === 'stars' ? '🎁' : '💵', `${k.name}: ${k.unit === 'stars' ? 'used' : 'paid'} ${kamt(k, a)}`); DB.save(); closeSheet(); render(); }
@@ -2057,7 +2060,7 @@ function actSheet(id) { const a = (D().activities || []).find(x => x.id === id) 
   ${id ? `${a.done ? `<button class="btn soft block" style="margin-top:10px" onclick="actUndo('${id}')">Move back to Want to do</button>` : `<button class="btn soft block" style="margin-top:10px" onclick="actDone('${id}')">✓ We did it!</button>`}<button class="btn red block" style="margin-top:10px" onclick="confirmDel(()=>{delFrom('activities','${id}');D().events=D().events.filter(e=>e.id!=='act-${id}');DB.save()})">Delete</button>` : ''}`);
   const r = document.getElementById('ara'); if (r) r.dataset.v = a.rating || 0; }
 function saveAct(id) { if (!val('at')) return toast('What is the activity?'); const t = document.querySelector('#aty .chip.on'), r = document.getElementById('ara');
-  const o = {title: val('at'), cat: t ? t.dataset.t : 'Other', place: val('ap'), cost: parseFloat(val('ac')) || '', date: val('ad'), note: val('an')}; if (r) o.rating = +r.dataset.v || 0;
+  const o = {title: val('at'), cat: t ? t.dataset.t : 'Other', place: val('ap'), cost: numv('ac') || '', date: val('ad'), note: val('an')}; if (r) o.rating = +r.dataset.v || 0;
   D().activities = D().activities || []; if (!id) { id = uid(); D().activities.push({id, by: S().me, added: Date.now(), done: false, ...o}); act('🎯', `added "${o.title}" to activities`); } else Object.assign(D().activities.find(x => x.id === id), o);
   syncActEvent(id); DB.save(); closeSheet(); render(); }
 // a planned activity shows in the calendar as an event with a fixed id, so it updates instead of duplicating
@@ -2118,7 +2121,7 @@ const g999 = () => Number(S().goldPrice || 0);
 const goldRate = p => (PURITY.find(x => x[0] === p) || PURITY[0])[1] / 0.999;      // price quoted for 999
 const goldGrams = g => Number(g.grams || 0) * goldRate(g.purity);   // 999 counts as full grams
 const g3 = n => String(+Number(n).toFixed(3));
-const gFmt = n => String(+Number(n).toFixed(2));
+const gFmt = n => String(+Number(n).toFixed(Math.abs(n) < 1 ? 3 : 2));
 const goldVal = g => g999() * goldRate(g.purity) * Number(g.grams || 0);
 const fullMonths = (a, b) => { const x = new Date(a + 'T00:00'), y = new Date(b + 'T00:00'); let m = (y.getFullYear() - x.getFullYear()) * 12 + y.getMonth() - x.getMonth(); if (y.getDate() < x.getDate()) m--; return Math.max(0, m); };
 // balance after n months: monthly compounding, contribution at the end of each month
@@ -2166,7 +2169,7 @@ function goldPriceSheet() { sheet(`<h2>Gold price today</h2><p class="sub">Enter
   ${field('RM per gram (999)', `<input id="gp" inputmode="decimal" value="${g999() || ''}" placeholder="e.g. 545.00">`)}
   <a class="btn soft block" style="text-align:center;margin-bottom:10px" href="https://www.google.com/search?q=harga+emas+999+hari+ini+per+gram" target="_blank" rel="noopener">🔎 Check today's price</a>
   <button class="btn block" onclick="saveGoldPrice()">Save</button>`); }
-function saveGoldPrice() { const p = parseFloat(val('gp')); if (!(p > 0)) return toast('Enter the price per gram');
+function saveGoldPrice() { const p = numv('gp'); if (!(p > 0)) return toast('Enter the price per gram');
   S().goldPrice = Math.round(p * 100) / 100; S().goldPriceAt = Date.now(); (D().goldHist = D().goldHist || []).push({id: uid(), d: todayISO(), p: S().goldPrice}); D().goldHist = D().goldHist.slice(-400);
   DB.save(); closeSheet(); render(); }
 function goldSheet(id) { const g = (D().gold || []).find(x => x.id === id) || {name: '', grams: '', purity: '999', cost: '', date: todayISO(), who: 'both', note: ''};
@@ -2176,8 +2179,8 @@ function goldSheet(id) { const g = (D().gold || []).find(x => x.id === id) || {n
   ${field('Belongs to', `<select id="gw">${[['both', 'Both'], ['A', whoName('A')], ['B', whoName('B')]].map(([k, l]) => `<option value="${k}" ${g.who === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`)}
   ${field('Notes', `<input id="gno" value="${esc(g.note || '')}" placeholder="e.g. kept in safe box">`)}
   <button class="btn block" onclick="saveGold('${id || ''}')">Save</button>${id ? `<button class="btn red block" style="margin-top:10px" onclick="confirmDel(()=>delFrom('gold','${id}'))">Delete</button>` : ''}`); }
-function saveGold(id) { const gr = parseFloat(val('gg')); if (!(gr > 0)) return toast('Enter the weight in grams');
-  const o = {name: val('gn') || 'Gold', grams: gr, purity: val('gpu'), cost: parseFloat(val('gc')) || 0, date: val('gd'), who: val('gw'), note: val('gno')};
+function saveGold(id) { const gr = numv('gg'); if (!(gr > 0)) return toast('Enter the weight in grams');
+  const o = {name: val('gn') || 'Gold', grams: gr, purity: val('gpu'), cost: numv('gc') || 0, date: val('gd'), who: val('gw'), note: val('gno')};
   D().gold = D().gold || []; if (id) Object.assign(D().gold.find(x => x.id === id), o); else { D().gold.push({id: uid(), ...o}); act('🪙', `added ${gr} g of gold`); }
   DB.save(); closeSheet(); render(); }
 function invSheet(id) { const i = (D().investments || []).find(x => x.id === id) || {name: '', type: 'ASB', start: '', startDate: todayISO(), monthly: '', rate: '', who: 'both', payDay: 1, note: ''};
@@ -2190,9 +2193,9 @@ function invSheet(id) { const i = (D().investments || []).find(x => x.id === id)
   ${field('Notes', `<input id="ino" value="${esc(i.note || '')}">`)}
   ${id ? `<div class="card" style="background:var(--accent-soft)"><div class="muted" style="font-size:13px">Estimated today</div><b>${RM(invNow(i))}</b><div class="muted" style="font-size:12px;margin-top:4px">Got a statement? Put the real balance and today's date above and save, so the estimate starts from there.</div></div>` : ''}
   <button class="btn block" onclick="saveInv('${id || ''}')">Save</button>${id ? `<button class="btn red block" style="margin-top:10px" onclick="confirmDel(()=>{delFrom('investments','${id}');D().bills=D().bills.filter(b=>b.id!=='inv-${id}');DB.save()})">Delete</button>` : ''}`); }
-function saveInv(id) { if (!val('in')) return toast('Give it a name'); const rate = parseFloat(val('ir'));
+function saveInv(id) { if (!val('in')) return toast('Give it a name'); const rate = numv('ir');
   if (!(rate >= 0) || rate > 100) return toast('Enter the % per year (e.g. 5.5)');
-  const o = {name: val('in'), type: val('it'), rate, start: parseFloat(val('is')) || 0, startDate: val('isd') || todayISO(), monthly: parseFloat(val('im')) || 0, who: val('iw'), note: val('ino'),
+  const o = {name: val('in'), type: val('it'), rate, start: numv('is') || 0, startDate: val('isd') || todayISO(), monthly: numv('im') || 0, who: val('iw'), note: val('ino'),
     payDay: Math.min(31, Math.max(1, parseInt(val('iday')) || 1))};
   D().investments = D().investments || []; if (id) Object.assign(D().investments.find(x => x.id === id), o); else { id = uid(); D().investments.push({id, ...o}); act('📈', `added ${o.name} to wealth`); }
   const bid = 'inv-' + id, b = D().bills.find(x => x.id === bid), want = document.getElementById('ib').checked && o.monthly > 0;

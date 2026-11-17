@@ -1,0 +1,66 @@
+== a_smoke
+SMOKE OK
+== b_heavy
+reload ms 221
+mem imgs hydrated 401 of 401
+storage limit {"extraExpensesBeforeFull":6000,"chars":5298793,"err":"QuotaExceededError"}
+errors: []
+== b2_storage
+legacy loaded: [ 'Legacy', 1, true ] in IDB: true
+chars 10170617 after reload expenses: 90000 name Legacy ls copy kept: false
+tasks after 2nd reload [ 'old task', 'new after big' ]
+errors: []
+== c_hostile
+clicks 3447
+HOSTILE OK
+== d_edge
+2028-02-29T23:59:30+08:00 {"today":"2028-02-29","otd":["4 years together today","Leap turns 4 today"],"vax2m":"2025-02-28 2025-03-31","bill":["2028-02-29"],"roll":"2026-04-30","cal":"2028-3","pray":"tomorrow/none","days":"1,461","future":"Leap is arriving 1 January 2030 🤍","meals":8}
+2026-12-31T23:59:00+08:00 {"today":"2026-12-31","otd":[],"vax2m":"2025-02-28 2025-03-31","bill":["2026-12-31"],"roll":"2026-04-30","cal":"2027-1","pray":"tomorrow/none","days":"1,036","future":"Leap is arriving 1 January 2030 🤍","meals":8}
+2027-01-01T00:01:00+08:00 {"today":"2027-01-01","otd":[],"vax2m":"2025-02-28 2025-03-31","bill":["2027-01-31"],"roll":"2026-04-30","cal":"2027-2","pray":"5:57","days":"1,037","future":"Leap is arriving 1 January 2030 🤍","meals":8}
+2026-11-12T06:00:00+08:00 {"today":"2026-11-12","otd":[],"vax2m":"2025-02-28 2025-03-31","bill":["2026-11-30"],"roll":"2026-04-30","cal":"2026-12","pray":"12:59","days":"987","future":"Leap is arriving 1 January 2030 🤍","meals":8}
+== e_monkey
+{"click":2414,"fill":511,"select":65,"skip":10}
+seed 1: 3000 steps in 11s, errors 0, data {"ok":true,"tasks":5,"exp":1,"kids":1,"events":0,"notes":0}, after reload: renders ok
+== f_pin_backup
+restored expenses: 70000 photo back: true
+after garbage still has expenses: 70000
+old backup -> {"name":"Old","kids":[["Ammar",1]]}
+errors: []
+== g_check
+feed button opens: Log a feed
+[]
+== h_sync
+PASS empty phone cannot wipe shared data (push paused)  542 -> 542 · Paused: this phone would delete 538 shared records. Open Settings → Sync to check.
+PASS repair brings shared data back, phones identical
+server {"items":544,"photos":1,"members":2,"live":542}
+errors: []
+== i_synccost
+{ rows: 28003, ms: 87 }
+== j_realclient
+form: true
+after 0 s
+toast: [ 'No internet connection. Try again' ]
+errors []
+== l_plans
+event in calendar: [ '🎯 White-water rafting 2026-12-06' ]
+errors []
+== o_wealth
+ok rejects bad %
+ok untick removes commitment
+ok delete removes both
+errors []
+== p_ent
+  'Entertainment',
+  'Other'
+]
+[]
+== q_arrange
+ok month list follows order: Takaful's,House loan,TNB,Car loan,Unifi
+ok new bill goes at the end
+ok reset to due date
+errors []
+== r_newstress
+ok   no sideways scrolling at 320px light
+ok   no sideways scrolling at 390px dark
+ok   no page errors overall 
+46/46 passed
