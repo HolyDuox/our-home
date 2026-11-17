@@ -13,4 +13,7 @@ const { chromium } = require('playwright'); const { open } = require('./common')
   const g = await p.locator('#billArr .item').nth(14).locator('.grip').boundingBox(); const y0 = await p.evaluate(() => scrollY);
   await p.mouse.move(g.x + 5, g.y + 5); await p.mouse.down(); for (let y = g.y; y < g.y + 160; y += 20) await p.mouse.move(g.x + 5, y); await p.mouse.up(); await p.waitForTimeout(150);
   ok(Math.abs((await p.evaluate(() => scrollY)) - y0) < 200, 'after a drag the page stays where it was');
+  await p.evaluate(() => { st.billArrange = false; render(); window.scrollTo(0, 900); }); await p.waitForTimeout(100);
+  const tk = p.locator('.list .item .tick').nth(8); await tk.scrollIntoViewIfNeeded(); const s0 = await p.evaluate(() => scrollY); await tk.click(); await p.waitForTimeout(150);
+  ok(Math.abs((await p.evaluate(() => scrollY)) - s0) < 5, 'ticking paid lower down does not jump to the top');
   console.log(errs, f ? 'FAILED' : 'ALL OK'); await b.close(); })();

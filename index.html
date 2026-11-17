@@ -557,6 +557,7 @@ function sheet(html) { document.getElementById('sheet').innerHTML = `<div class=
   hydrateImgs();
   const f = document.querySelector('.sheet input:not([type=date]):not([type=file]),.sheet textarea'); if (f && !f.value) setTimeout(() => f.focus(), 250); }
 function closeSheet() { document.getElementById('sheet').innerHTML = ''; if (SYNC.pendingRender) { SYNC.pendingRender = false; render(); } }
+const APP_VERSION = '2026.11.18-b';
 const val = id => (document.getElementById(id)?.value ?? '').trim();
 // numbers typed with a comma: "5,5" -> 5.5 (decimal comma), "1,000" / "12,500.50" -> thousands
 const toNum = t => { t = String(t ?? '').trim().replace(/\s|RM/gi, ''); if (/^-?\d+,\d{1,2}$/.test(t) || /^-?\d+,\d{4,}$/.test(t)) t = t.replace(',', '.'); else t = t.replace(/,/g, ''); return parseFloat(t); };
@@ -810,7 +811,7 @@ function vMore() {
   const body = {Memories: vMemories, Notes: vNotes, Recipes: vRecipes, Car: vCar, Contacts: vContacts, Settings: vSettings}[st.more]();
   return `<div class="chips" style="margin-bottom:14px" id="morechips">${MORE.map(m => `<button class="chip ${m === st.more ? 'on' : ''}" onclick="go('more','${m}')">${m === 'Settings' ? '⚙︎ ' : ''}${m}</button>`).join('')}</div>${body}`;
 }
-const _ar = afterRender; afterRender = function () { _ar(); const c = document.querySelector('#morechips .on, #moneychips .on'); if (c) c.scrollIntoView({inline: 'center', block: 'nearest'}); };
+const _ar = afterRender; afterRender = function () { _ar(); const c = document.querySelector('#morechips .on, #moneychips .on'); if (c) { const r = c.parentNode; r.scrollLeft = c.offsetLeft - r.offsetLeft - (r.clientWidth - c.offsetWidth) / 2; } };   // scroll the chip row sideways only, never the page
 
 /* ----- Kids ----- */
 const BANDS = [
@@ -1118,10 +1119,14 @@ function billArrangeList(bs) {
     <button class="btn soft sm" ${i ? '' : 'disabled style="opacity:.3"'} onclick="billMove('${b.id}',-1)" aria-label="Move up">▲</button><button class="btn soft sm" ${i < bs.length - 1 ? '' : 'disabled style="opacity:.3"'} onclick="billMove('${b.id}',1)" aria-label="Move down">▼</button></div>`).join('')}</div>
   <button class="btn soft block" style="margin-top:10px" onclick="billResetOrder()">Sort by due date</button>`;
 }
-function billSetOrder(ids, keepId) { const el = keepId && document.querySelector(`#billArr [data-id="${keepId}"]`), top = el ? el.getBoundingClientRect().top : null, y = window.scrollY; const rest = [...D().bills].sort(billSort).filter(b => !ids.includes(b.id)); [...ids.map(id => D().bills.find(b => b.id === id)).filter(Boolean), ...rest].forEach((b, i) => { b.order = i; }); DB.save(); render();
-  // keep the screen where it was: the moved commitment stays under your finger
-  const nw = keepId && document.querySelector(`#billArr [data-id="${keepId}"]`); window.scrollTo(0, y); if (nw && top !== null) window.scrollBy(0, nw.getBoundingClientRect().top - top); }
-function billMove(id, d) { const ids = [...D().bills].filter(b => activeBill(b)).sort(billSort).map(b => b.id), i = ids.indexOf(id), j = i + d; if (i < 0 || j < 0 || j >= ids.length) return; [ids[i], ids[j]] = [ids[j], ids[i]]; billSetOrder(ids, id); }
+function billSaveOrder(ids) { const rest = [...D().bills].sort(billSort).filter(b => !ids.includes(b.id)); [...ids.map(id => D().bills.find(b => b.id === id)).filter(Boolean), ...rest].forEach((b, i) => { b.order = i; }); DB.save(); }
+function billArrows() { const rows = [...document.querySelectorAll('#billArr .item')]; rows.forEach((r, i) => { const [up, dn] = r.querySelectorAll('button'); up.disabled = !i; dn.disabled = i === rows.length - 1; up.style.opacity = i ? '' : '.3'; dn.style.opacity = i === rows.length - 1 ? '.3' : ''; }); }
+// move the row on screen without redrawing the page, so the scroll position never jumps
+function billMove(id, d) { const row = document.querySelector(`#billArr [data-id="${id}"]`);
+  if (!row) { const ids = [...D().bills].filter(b => activeBill(b)).sort(billSort).map(b => b.id), i = ids.indexOf(id), j = i + d; if (i < 0 || j < 0 || j >= ids.length) return; [ids[i], ids[j]] = [ids[j], ids[i]]; return billSaveOrder(ids); } const other = d < 0 ? row.previousElementSibling : row.nextElementSibling; if (!other) return;
+  const top = row.getBoundingClientRect().top; d < 0 ? row.parentNode.insertBefore(row, other) : row.parentNode.insertBefore(other, row);
+  window.scrollBy(0, row.getBoundingClientRect().top - top); billArrows(); billSaveOrder([...row.parentNode.children].map(c => c.dataset.id)); }
+function billSetOrder(ids) { billSaveOrder(ids); billArrows(); }
 function billResetOrder() { D().bills.forEach(b => { delete b.order; }); DB.save(); render(); toast('Sorted by due date'); }
 function billDrag(e) {
   const row = e.target.closest('.item'), list = row && row.parentNode; if (!list) return; e.preventDefault();
@@ -1187,6 +1192,7 @@ function vSettings() {
   <h2>Backup</h2>
   <div class="card"><p class="muted" style="margin-top:0">Save a copy of all your data and photos to a file, or restore one.</p>
   <div class="row"><button class="btn soft grow" onclick="backup()">Download backup</button><label class="btn soft grow" style="text-align:center">Restore<input type="file" accept=".json" style="display:none" onchange="restore(this)"></label></div></div>
+  <p class="muted" style="text-align:center;font-size:12px;margin:18px 0 0">App version ${APP_VERSION}</p>
   <h2>Install on your phone</h2>
   <div class="card muted"><b style="color:var(--ink)">iPhone (Safari):</b> tap Share, then <i>Add to Home Screen</i>.<br><br><b style="color:var(--ink)">Android / Red Magic (Chrome):</b> tap ⋮, then <i>Add to Home screen</i> or <i>Install app</i>.</div>`;
 }
