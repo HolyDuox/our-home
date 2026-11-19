@@ -129,6 +129,8 @@ nav{padding:6px}
 .cal .d{position:relative;height:44px;display:grid;place-items:center;font-size:16px;border-radius:50%;width:44px;max-width:100%;aspect-ratio:1;height:auto;margin:0 auto}
 .cal .d.today{background:var(--dark);color:var(--card);font-weight:700}
 .cal .d.sel{outline:2px solid var(--accent)}
+.cal .d.hol{color:var(--red);font-weight:700}.cal .d.hol.today{background:var(--red);color:#fff}
+.holrow{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:13px;color:var(--ink2)}.holrow b{color:var(--red)}.holrow .tlink{margin-left:auto}
 .cal .dots{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);display:flex;gap:2px}
 .cal .dots i{width:5px;height:5px;border-radius:50%;background:var(--accent)}
 .cal .dots i.b{background:var(--warn)}
@@ -559,7 +561,7 @@ function sheet(html) { document.getElementById('sheet').innerHTML = `<div class=
   hydrateImgs();
   const f = document.querySelector('.sheet input:not([type=date]):not([type=file]),.sheet textarea'); if (f && !f.value) setTimeout(() => f.focus(), 250); }
 function closeSheet() { document.getElementById('sheet').innerHTML = ''; if (SYNC.pendingRender) { SYNC.pendingRender = false; render(); } }
-const APP_VERSION = '2026.11.18-c';
+const APP_VERSION = '2026.11.19-a';
 const val = id => (document.getElementById(id)?.value ?? '').trim();
 // numbers typed with a comma: "5,5" -> 5.5 (decimal comma), "1,000" / "12,500.50" -> thousands
 const toNum = t => { t = String(t ?? '').trim().replace(/\s|RM/gi, ''); if (/^-?\d+,\d{1,2}$/.test(t) || /^-?\d+,\d{4,}$/.test(t)) t = t.replace(',', '.'); else t = t.replace(/,/g, ''); return parseFloat(t); };
@@ -611,12 +613,29 @@ function vHome() {
       <div class="serif" style="font-size:30px">${goal ? Math.round(goal.saved / goal.target * 100) + '%' : '—'}</div><div class="muted">${goal ? RM(goal.saved) + ' saved' : 'Add a goal'}</div></div>
   </div>`;
 }
+/* ---- Selangor public holidays (official lists; Sunday holidays move to Monday) ---- */
+const HOLS = {
+  '2026-01-01': "New Year's Day", '2026-02-01': 'Thaipusam', '2026-02-02': 'Thaipusam (replacement)', '2026-02-17': 'Chinese New Year', '2026-02-18': 'Chinese New Year (day 2)',
+  '2026-03-07': 'Nuzul Al-Quran', '2026-03-20': 'Hari Raya Aidilfitri holiday', '2026-03-21': 'Hari Raya Aidilfitri', '2026-03-22': 'Hari Raya Aidilfitri (day 2)', '2026-03-23': 'Hari Raya Aidilfitri (replacement)',
+  '2026-05-01': 'Labour Day', '2026-05-27': 'Hari Raya Haji', '2026-05-31': 'Wesak Day', '2026-06-01': "Agong's Birthday", '2026-06-17': 'Awal Muharram', '2026-08-25': 'Maulidur Rasul',
+  '2026-08-31': 'National Day', '2026-09-01': 'Selangor special holiday', '2026-09-16': 'Malaysia Day', '2026-10-25': "Sultan's Silver Jubilee", '2026-10-26': "Sultan's Silver Jubilee (replacement)",
+  '2026-11-08': 'Deepavali', '2026-11-09': 'Deepavali (replacement)', '2026-12-11': "Sultan of Selangor's Birthday", '2026-12-25': 'Christmas Day',
+  '2027-01-01': "New Year's Day", '2027-01-22': 'Thaipusam', '2027-02-06': 'Chinese New Year', '2027-02-07': 'Chinese New Year (day 2)', '2027-02-08': 'Chinese New Year (replacement)',
+  '2027-02-24': 'Nuzul Al-Quran', '2027-03-10': 'Hari Raya Aidilfitri', '2027-03-11': 'Hari Raya Aidilfitri (day 2)', '2027-05-01': 'Labour Day', '2027-05-17': 'Hari Raya Haji',
+  '2027-05-20': 'Wesak Day', '2027-06-06': 'Awal Muharram', '2027-06-07': "Agong's Birthday", '2027-06-08': 'Awal Muharram (replacement)', '2027-08-15': 'Maulidur Rasul',
+  '2027-08-16': 'Maulidur Rasul (replacement)', '2027-08-31': 'National Day', '2027-09-16': 'Malaysia Day', '2027-10-28': 'Deepavali', '2027-12-11': "Sultan of Selangor's Birthday",
+  '2027-12-25': 'Christmas Day', '2027-12-26': 'Israk & Mikraj', '2027-12-27': 'Israk & Mikraj (replacement)'
+};
+const HOLS_LAST = '2027-12-31';
+const holOn = iso => S().showHols === false ? '' : (HOLS[iso] || '');
+function holDates(from, to) { if (S().showHols === false) return []; return Object.keys(HOLS).filter(d => d >= from && d <= to).sort().map(d => ({title: '🇲🇾 ' + HOLS[d], date: d, kind: 'Public holiday · Selangor'})); }
 function upcomingItems(nDays) {
   const t = todayISO(), end = new Date(); end.setDate(end.getDate() + nDays); const e = isoOf(end);
   const out = D().events.filter(x => x.date >= t && x.date <= e).map(x => ({title: x.title, date: x.date, kind: 'Event'}));
   D().tasks.filter(x => !x.done && x.due > t && x.due <= e).forEach(x => out.push({title: x.title, date: x.due, kind: 'Task'}));
   billDates(t, e).forEach(b => out.push(b));
   kidDates(t, e).filter(x => x.date > t).forEach(x => out.push(x));
+  holDates(t, e).forEach(x => out.push(x));
   return out.sort((a, b) => a.date.localeCompare(b.date));
 }
 function billDates(from, to) {
@@ -757,16 +776,20 @@ function vCalOnly() {
     const iso = `${key}-${String(d).padStart(2, '0')}`;
     const ev = D().events.filter(e => e.date === iso).length + D().tasks.filter(x => !x.done && x.due === iso).length + kidDates(iso, iso).length;
     const bl = bills.filter(b => b.date === iso).length;
-    cells += `<button class="d ${iso === t ? 'today' : ''} ${iso === st.calSel ? 'sel' : ''}" onclick="st.calSel='${iso}';render()">${d}${ev || bl ? `<span class="dots">${ev ? '<i></i>' : ''}${bl ? '<i class="b"></i>' : ''}</span>` : ''}</button>`;
+    const hol = holOn(iso);
+    cells += `<button class="d ${iso === t ? 'today' : ''} ${iso === st.calSel ? 'sel' : ''} ${hol ? 'hol' : ''}" ${hol ? `aria-label="${d}, ${esc(hol)}"` : ''} onclick="st.calSel='${iso}';render()">${d}${ev || bl ? `<span class="dots">${ev ? '<i></i>' : ''}${bl ? '<i class="b"></i>' : ''}</span>` : ''}</button>`;
   }
   const sel = st.calSel;
-  const selItems = sel ? [...D().events.filter(e => e.date === sel).map(e => ({...e, kind: 'Event'})), ...D().tasks.filter(x => x.due === sel).map(x => ({title: x.title, kind: 'Task'})), ...kidDates(sel, sel), ...classesOn(sel).map(({kid, c}) => ({title: `${kid.name}: ${c.title}`, kind: 'Class', time: t12(c.time)})), ...billDates(sel, sel)] : [];
+  const selItems = sel ? [...holDates(sel, sel), ...D().events.filter(e => e.date === sel).map(e => ({...e, kind: 'Event'})), ...D().tasks.filter(x => x.due === sel).map(x => ({title: x.title, kind: 'Task'})), ...kidDates(sel, sel), ...classesOn(sel).map(({kid, c}) => ({title: `${kid.name}: ${c.title}`, kind: 'Class', time: t12(c.time)})), ...billDates(sel, sel)] : [];
   const up = D().events.filter(e => e.date >= t).sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''))).slice(0, 12);
   return `<p class="sub">Events and important dates. Tap a day to see or add, swipe to change month.</p>
   <div class="card" id="calcard">
     <div class="row" style="justify-content:space-between;margin-bottom:8px"><button class="tlink" style="font-size:22px;padding:0 10px" onclick="calMove(-1)">‹</button>
     <b style="font-size:18px">${first.toLocaleDateString('en-GB', {month:'long', year:'numeric'})}</b><button class="tlink" style="font-size:22px;padding:0 10px" onclick="calMove(1)">›</button></div>
     <div class="cal">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => `<div class="h">${d}</div>`).join('')}${cells}</div>
+    ${(() => { const hs = holDates(`${key}-01`, `${key}-${dim}`); if (S().showHols === false) return `<div class="holrow"><button class="tlink" onclick="S().showHols=true;DB.save();render()">Show Selangor public holidays</button></div>`;
+      return `<div class="holrow">${hs.length ? hs.map(h => `<span><b>${+h.date.slice(8)}</b> ${esc(h.title.slice(5))}</span>`).join('') : `<span class="muted">${key > HOLS_LAST.slice(0, 7) ? 'Holidays for this year are not added yet' : 'No public holidays this month'}</span>`}
+      <button class="tlink" style="font-size:13px" onclick="S().showHols=false;DB.save();render()">Hide</button></div>`; })()}
   </div>
   <div class="card row" style="margin-top:12px" onclick="go('money','Bills')">${I.bill}<b class="grow">${bills.length ? `${bills.length} payment${bills.length > 1 ? 's' : ''} still due in ${first.toLocaleDateString('en-GB', {month:'short'})}` : allBillsMonth.length ? 'All paid this month' : 'No commitments set up'}</b><b style="color:var(--accent)">${bills.length ? RM(unpaidAmt) : ''} ›</b></div>
   ${sel ? `<h2>${fmtDate(sel, {weekday:'long', day:'numeric', month:'long'})}</h2>
