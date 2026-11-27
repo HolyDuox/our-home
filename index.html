@@ -561,7 +561,7 @@ function sheet(html) { document.getElementById('sheet').innerHTML = `<div class=
   hydrateImgs();
   const f = document.querySelector('.sheet input:not([type=date]):not([type=file]),.sheet textarea'); if (f && !f.value) setTimeout(() => f.focus(), 250); }
 function closeSheet() { document.getElementById('sheet').innerHTML = ''; if (SYNC.pendingRender) { SYNC.pendingRender = false; render(); } }
-const APP_VERSION = '2026.11.27-d';
+const APP_VERSION = '2026.11.27-e';
 const val = id => (document.getElementById(id)?.value ?? '').trim();
 // numbers typed with a comma: "5,5" -> 5.5 (decimal comma), "1,000" / "12,500.50" -> thousands
 const toNum = t => { t = String(t ?? '').trim().replace(/\s|RM/gi, ''); if (/^-?\d+,\d{1,2}$/.test(t) || /^-?\d+,\d{4,}$/.test(t)) t = t.replace(',', '.'); else t = t.replace(/,/g, ''); return parseFloat(t); };
@@ -2374,9 +2374,10 @@ function vBody() {
   ${healthCard(w)}
   <h2>Body measurements</h2>
   <div class="list"><div class="item" style="padding:10px 18px"><div class="grow muted" style="font-size:12px">Measure</div><div class="muted" style="font-size:12px;width:72px;text-align:right">Current</div><div class="muted" style="font-size:12px;width:62px;text-align:right">Goal</div></div>
-    ${BODY.filter(([k]) => k !== 'weight').map(([k, l, u]) => { const c = cur[k] && cur[k].v, gl = bNum(g[k]); return `<div class="item" style="padding:12px 18px;align-items:center" onclick="bodyGoalSheet()"><div class="grow"><div class="t" style="font-size:15px">${l}</div>${c && gl ? `<div class="s" style="font-size:12px">${toGo(k, c, gl)}</div>` : ''}</div>
+    ${BODY.filter(([k]) => k !== 'weight').map(([k, l, u]) => { const c = cur[k] && cur[k].v, gl = bNum(g[k]); return `<div class="item" style="padding:12px 18px;align-items:center" onclick="bodyEditLatest('${w}')"><div class="grow"><div class="t" style="font-size:15px">${l}</div>${c && gl ? `<div class="s" style="font-size:12px">${toGo(k, c, gl)}</div>` : ''}</div>
       <b style="width:72px;text-align:right">${c ? b1(c) + ' ' + u : '—'}</b><span style="width:62px;text-align:right;color:var(--good)">${gl ? b1(gl) + ' ' + u : '—'}</span></div>`; }).join('')}</div>
-  <div class="row" style="margin-top:10px"><button class="btn soft grow" onclick="bodyGoalSheet()">🎯 Set goals</button><button class="btn grow" onclick="bodySheet()">+ New entry</button></div>
+  <div class="row" style="margin-top:10px;gap:8px">${hist.length ? `<button class="btn soft grow" onclick="bodyEditLatest('${w}')">✏️ Edit latest</button>` : ''}<button class="btn soft grow" onclick="bodyGoalSheet()">🎯 Goals</button><button class="btn grow" onclick="bodySheet()">+ New</button></div>
+  <p class="muted" style="font-size:12px;margin:6px 4px 0">Tap a measurement to edit your latest entry. A new entry on the same day updates that day instead of adding another.</p>
   <h2>History</h2><div class="list">${hist.slice(0, 30).map(x => `<div class="item" onclick="bodySheet('${x.id}')"><div class="grow"><div class="t" style="font-size:15px">${fmtDate(x.date, {weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'})}</div>
     <div class="s">${BODY.filter(([k]) => bNum(x[k])).map(([k, l, u]) => `${l} ${b1(x[k])} ${u}`).map(esc).join(' · ')}</div>${x.note ? `<div class="s">${esc(x.note)}</div>` : ''}</div></div>`).join('') || '<div class="empty">No entries yet. Weigh in and measure once a week, same time of day.</div>'}</div>
   <p class="muted" style="font-size:12px;text-align:center">Shared with ${esc(whoName(w === 'A' ? 'B' : 'A'))} like the rest of the app.</p>`;
@@ -2412,6 +2413,7 @@ function healthCard(w) { const {out, need} = healthChecks(w);
     <details style="margin-top:10px"><summary class="muted" style="font-size:13px">Why not just BMI?</summary><p class="muted" style="font-size:13px;margin:6px 0 0">BMI only uses weight and height, so it can't tell muscle from fat. Asians also carry more risk at a lower BMI, so Malaysia uses stricter cut-offs (healthy up to 22.9, not 24.9). Waist ÷ height measures belly fat, which is linked more closely to diabetes and heart disease, and works the same for men and women. Measure your waist at the belly button, relaxed, after breathing out. These are general screening guides, not a diagnosis.</p></details></div>`; }
 function hcSave(w) { const h = numv('hc_h'), sx = val('hc_s'); if (!(h > 80 && h < 250)) return toast('Enter your height in cm, e.g. 165'); if (!sx) return toast('Choose male or female');
   D().bodygoals = D().bodygoals || {}; D().bodygoals[w] = {...(D().bodygoals[w] || {}), height: Math.round(h * 10) / 10, sex: sx}; DB.save(); render(); toast('Health check updated'); }
+function bodyEditLatest(w) { const l = (D().body || []).filter(x => x.who === w).sort((a, b) => b.date.localeCompare(a.date) || (b.at || 0) - (a.at || 0))[0]; l ? bodySheet(l.id) : bodySheet(); }
 function bodySheet(id) { const w = st.bWho || S().me || 'A', x = (D().body || []).find(b => b.id === id) || {date: todayISO(), who: w, note: ''};
   sheet(`<h2>${id ? 'Edit entry' : 'New entry for ' + esc(whoName(x.who))}</h2><p class="muted" style="margin-top:-6px">Fill only what you measured.</p>
   ${field('Date', `<input type="date" id="bd" value="${x.date}">`)}
@@ -2421,7 +2423,10 @@ function bodySheet(id) { const w = st.bWho || S().me || 'A', x = (D().body || []
 function saveBody(id, who) { const o = {date: val('bd') || todayISO(), note: val('bn')}; let any = false;
   BODY.forEach(([k]) => { const n = numv('b_' + k); o[k] = n > 0 && n < 1000 ? Math.round(n * 10) / 10 : null; if (o[k]) any = true; });
   if (!any) return toast('Enter at least one number');
-  D().body = D().body || []; if (id) Object.assign(D().body.find(x => x.id === id), o); else D().body.push({id: uid(), who, at: Date.now(), ...o});
+  D().body = D().body || []; const same = !id && D().body.find(x => x.who === who && x.date === o.date);
+  if (id) Object.assign(D().body.find(x => x.id === id), o);
+  else if (same) { BODY.forEach(([k]) => { if (o[k]) same[k] = o[k]; }); if (o.note) same.note = o.note; toast('Updated ' + fmtDate(o.date, {day: 'numeric', month: 'short'}) + "'s entry"); }
+  else D().body.push({id: uid(), who, at: Date.now(), ...o});
   DB.save(); closeSheet(); render(); }
 function bodyGoalSheet() { const w = st.bWho || S().me || 'A', g = (D().bodygoals || {})[w] || {};
   sheet(`<h2>Goals for ${esc(whoName(w))}</h2>

@@ -1,0 +1,17 @@
+const { chromium } = require('playwright'); const { open } = require('./common');
+(async () => { const b = await chromium.launch(); const { p, errs } = await open(b); let f = 0; const ok = (c, m) => { console.log(c ? 'ok  ' : 'FAIL', m); if (!c) f++; };
+  await p.evaluate(() => { S().me = 'A'; D().body = [{id: 'old', who: 'A', date: addDaysISO(todayISO(), -7), weight: 80, waist: 90}, {id: 'new', who: 'A', date: todayISO(), at: 1, weight: 79, waist: 89, chest: 100}]; go('more', 'Exercise'); st.xTab = 'body'; render(); });
+  ok(await p.locator('button:has-text("Edit latest")').count() === 1 && await p.locator('button:has-text("+ New")').count() === 1, 'two buttons: Edit latest and + New');
+  await p.click('button:has-text("Edit latest")'); ok(await p.inputValue('#b_weight') === '79' && await p.inputValue('#b_chest') === '100', 'Edit latest opens the newest entry filled in');
+  await p.fill('#b_waist', '88'); await p.click('.sheet button:has-text("Save")'); await p.waitForTimeout(100);
+  ok(await p.evaluate(() => D().body.length === 2 && D().body.find(x => x.id === 'new').waist === 88), 'edit changes that entry, no new one added');
+  await p.locator('#app .item[onclick^="bodyEditLatest"]:has-text("Chest")').click(); ok(await p.inputValue('#b_chest') === '100', 'tapping a measurement row also edits the latest');
+  await p.evaluate(() => closeSheet());
+  await p.click('button:has-text("+ New")'); ok(await p.inputValue('#b_weight') === '', '+ New opens an empty form');
+  await p.fill('#b_arm', '30'); await p.click('.sheet button:has-text("Save")'); await p.waitForTimeout(100);
+  ok(await p.evaluate(() => D().body.length === 2 && D().body.find(x => x.id === 'new').arm === 30 && D().body.find(x => x.id === 'new').weight === 79), 'new entry on the same day merges into it, keeps other values');
+  await p.click('button:has-text("+ New")'); await p.fill('#bd', await p.evaluate(() => addDaysISO(todayISO(), 1))); await p.fill('#b_weight', '78.5'); await p.click('.sheet button:has-text("Save")'); await p.waitForTimeout(100);
+  ok(await p.evaluate(() => D().body.length) === 3, 'new entry on another day adds a new one');
+  ok(await p.evaluate(() => { const B = D().body; return B.filter(x => x.who === 'B').length === 0; }), "doesn't touch the other person");
+  await p.evaluate(() => { D().body = []; render(); }); ok(await p.locator('button:has-text("Edit latest")').count() === 0, 'no Edit button when there are no entries');
+  console.log(errs, f ? 'FAILED' : 'ALL OK'); await b.close(); })();
