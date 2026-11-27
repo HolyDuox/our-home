@@ -561,7 +561,7 @@ function sheet(html) { document.getElementById('sheet').innerHTML = `<div class=
   hydrateImgs();
   const f = document.querySelector('.sheet input:not([type=date]):not([type=file]),.sheet textarea'); if (f && !f.value) setTimeout(() => f.focus(), 250); }
 function closeSheet() { document.getElementById('sheet').innerHTML = ''; if (SYNC.pendingRender) { SYNC.pendingRender = false; render(); } }
-const APP_VERSION = '2026.11.27-b';
+const APP_VERSION = '2026.11.27-c';
 const val = id => (document.getElementById(id)?.value ?? '').trim();
 // numbers typed with a comma: "5,5" -> 5.5 (decimal comma), "1,000" / "12,500.50" -> thousands
 const toNum = t => { t = String(t ?? '').trim().replace(/\s|RM/gi, ''); if (/^-?\d+,\d{1,2}$/.test(t) || /^-?\d+,\d{4,}$/.test(t)) t = t.replace(',', '.'); else t = t.replace(/,/g, ''); return parseFloat(t); };
@@ -2283,7 +2283,8 @@ function vRoutines() {
   <div class="list">${l.map(r => { const ex = (r.exercises || '').split('\n').map(s => s.trim()).filter(Boolean);
     return `<div class="item" onclick="routineSheet('${r.id}')"><div class="ico">${xIcon(r.type)}</div><div class="grow"><div class="t">${esc(r.name)}</div>
     <div class="s">${[xWho(r.who), (r.days || []).length === 7 ? 'Every day' : [1, 2, 3, 4, 5, 6, 0].filter(d => (r.days || []).includes(d)).map(d => DOW[d]).join(', ') || 'Any day', r.minutes ? r.minutes + ' min' : ''].filter(Boolean).map(esc).join(' · ')}</div>
-    ${ex.length ? `<div class="s" style="margin-top:4px">${ex.slice(0, 4).map(esc).join('<br>')}${ex.length > 4 ? `<br>+${ex.length - 4} more` : ''}</div>` : ''}</div></div>`; }).join('') || '<div class="empty">No routines yet. Add one, like "Leg day: Squat 3×10, Lunges 3×12" or "Morning run 5 km, Mon/Wed/Fri".</div>'}</div>
+    ${ex.length ? `<div class="s" style="margin-top:4px">${ex.slice(0, 4).map(esc).join('<br>')}${ex.length > 4 ? `<br>+${ex.length - 4} more` : ''}</div>` : ''}
+    ${(r.photos || []).length ? `<div class="photo-row" style="margin-top:8px">${r.photos.slice(0, 4).map(i => `<div class="thumb" data-img="${i}" onclick="event.stopPropagation();lightbox('${i}')"></div>`).join('')}${r.photos.length > 4 ? `<span class="muted" style="align-self:center;font-size:13px">+${r.photos.length - 4}</span>` : ''}</div>` : ''}</div></div>`; }).join('') || '<div class="empty">No routines yet. Add one, like "Leg day: Squat 3×10, Lunges 3×12" or "Morning run 5 km, Mon/Wed/Fri".</div>'}</div>
   <button class="fab" onclick="routineSheet()">+ New routine</button>`;
 }
 function vFitGoals() {
@@ -2298,16 +2299,17 @@ function vFitGoals() {
 }
 const xWhoSel = (id, v, both = 'Together') => `<select id="${id}">${[['A', whoName('A')], ['B', whoName('B')], ['both', both]].map(([k, l]) => `<option value="${k}" ${v === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
 const xTypeSel = (id, v) => `<select id="${id}">${XTYPES.map(([t, ic]) => `<option value="${t}" ${v === t ? 'selected' : ''}>${ic} ${t}</option>`).join('')}</select>`;
-function routineSheet(id) { const r = D().routines.find(x => x.id === id) || {name: '', type: 'Gym', who: S().me, days: [], minutes: '', exercises: '', note: ''};
+function routineSheet(id) { const r = D().routines.find(x => x.id === id) || {name: '', type: 'Gym', who: S().me, days: [], minutes: '', exercises: '', note: ''}; noteImgs = [...(r.photos || [])];
   sheet(`<h2>${id ? 'Edit routine' : 'New routine'}</h2>${field('Name', `<input id="rn" value="${esc(r.name)}" placeholder="e.g. Leg day, Morning run">`)}
   <div class="grid2">${field('Type', xTypeSel('rt', r.type))}${field('Who', xWhoSel('rw', r.who))}</div>
   ${field('Days', `<div class="chips" id="rdays" style="flex-wrap:wrap">${[1, 2, 3, 4, 5, 6, 0].map(d => `<button type="button" class="chip sm ${(r.days || []).includes(d) ? 'on' : ''}" data-d="${d}" onclick="this.classList.toggle('on')">${DOW[d]}</button>`).join('')}</div>`)}
   ${field('Minutes (about)', `<input id="rm" inputmode="numeric" value="${r.minutes || ''}" placeholder="e.g. 45">`)}
   ${field('Exercises, one per line', `<textarea id="rx" rows="5" placeholder="Squat 3×10 · 40 kg&#10;Lunges 3×12&#10;Plank 3×45s">${esc(r.exercises || '')}</textarea>`)}
-  ${field('Notes', `<input id="rno" value="${esc(r.note || '')}" placeholder="e.g. Warm up 10 min first">`)}
-  <button class="btn block" onclick="saveRoutine('${id || ''}')">Save</button>${id ? `<button class="btn soft block" style="margin-top:10px" onclick="closeSheet();xDoRoutine('${id}')">✓ Log it as done today</button><button class="btn red block" style="margin-top:10px" onclick="confirmDel(()=>delFrom('routines','${id}'))">Delete</button>` : ''}`); }
+  ${field('Notes', `<textarea id="rno" rows="3" placeholder="e.g. Warm up 10 min first, keep back straight on squats">${esc(r.note || '')}</textarea>`)}
+  ${field('Photos to refer to (form, machine, workout card)', '<div class="photo-row" id="nph"></div>')}
+  <button class="btn block" onclick="saveRoutine('${id || ''}')">Save</button>${id ? `<button class="btn soft block" style="margin-top:10px" onclick="closeSheet();xDoRoutine('${id}')">✓ Log it as done today</button><button class="btn red block" style="margin-top:10px" onclick="confirmDel(()=>{(D().routines.find(x=>x.id==='${id}').photos||[]).forEach(i=>IMG.del(i));delFrom('routines','${id}')})">Delete</button>` : ''}`); drawNoteImgs(); }
 function saveRoutine(id) { if (!val('rn')) return toast('Name the routine');
-  const o = {name: val('rn'), type: val('rt'), who: val('rw'), days: [...document.querySelectorAll('#rdays .chip.on')].map(b => +b.dataset.d), minutes: Math.max(0, Math.round(numv('rm') || 0)), exercises: (document.getElementById('rx').value || '').trim(), note: val('rno')};
+  const o = {name: val('rn'), type: val('rt'), who: val('rw'), days: [...document.querySelectorAll('#rdays .chip.on')].map(b => +b.dataset.d), minutes: Math.max(0, Math.round(numv('rm') || 0)), exercises: (document.getElementById('rx').value || '').trim(), note: (document.getElementById('rno').value || '').trim(), photos: [...noteImgs]};
   if (id) Object.assign(D().routines.find(x => x.id === id), o); else { D().routines.push({id: uid(), by: S().me, ...o}); act('💪', `added the routine "${o.name}"`); }
   DB.save(); closeSheet(); render(); }
 function xDoRoutine(id) { const r = D().routines.find(x => x.id === id); if (!r) return;
@@ -2365,10 +2367,11 @@ function vBody() {
   const pct = first && gw && cw && first.v !== gw ? Math.max(0, Math.min(100, Math.round((first.v - cw) / (first.v - gw) * 100))) : null;
   return `<div class="chips" style="margin-bottom:10px">${['A', 'B'].map(k => `<button class="chip sm ${w === k ? 'on' : ''}" onclick="st.bWho='${k}';render()">${esc(whoName(k))}</button>`).join('')}</div>
   <div class="card"><div class="row" style="justify-content:space-between;align-items:flex-start"><div><div class="muted">Weight now</div><div class="serif" style="font-size:34px">${cw ? b1(cw) + ' kg' : '—'}</div>
-    <div class="muted" style="font-size:12px">${cur.weight ? 'on ' + fmtDate(cur.weight.date, {day: 'numeric', month: 'short'}) : 'Add your first entry'}${bmi ? ` · BMI ${b1(bmi)}` : ''}</div></div>
+    <div class="muted" style="font-size:12px">${cur.weight ? 'on ' + fmtDate(cur.weight.date, {day: 'numeric', month: 'short'}) : 'Add your first entry'}</div></div>
     <div style="text-align:right"><div class="muted">Goal</div><div class="serif" style="font-size:24px;color:var(--good)">${gw ? b1(gw) + ' kg' : '—'}</div><div style="font-size:12px">${toGo('weight', cw, gw)}</div></div></div>
     ${pct !== null ? `<div class="bar"><i style="width:${pct}%"></i></div><div class="muted" style="font-size:12px">${pct}% of the way from ${b1(first.v)} kg${g.date ? ` · goal date ${fmtDate(g.date, {day: 'numeric', month: 'short', year: 'numeric'})}` : ''}</div>` : ''}
     ${bodyChart(wpts, gw)}</div>
+  ${healthCard(w)}
   <h2>Body measurements</h2>
   <div class="list"><div class="item" style="padding:10px 18px"><div class="grow muted" style="font-size:12px">Measure</div><div class="muted" style="font-size:12px;width:72px;text-align:right">Current</div><div class="muted" style="font-size:12px;width:62px;text-align:right">Goal</div></div>
     ${BODY.filter(([k]) => k !== 'weight').map(([k, l, u]) => { const c = cur[k] && cur[k].v, gl = bNum(g[k]); return `<div class="item" style="padding:12px 18px;align-items:center" onclick="bodyGoalSheet()"><div class="grow"><div class="t" style="font-size:15px">${l}</div>${c && gl ? `<div class="s" style="font-size:12px">${toGo(k, c, gl)}</div>` : ''}</div>
@@ -2378,6 +2381,32 @@ function vBody() {
     <div class="s">${BODY.filter(([k]) => bNum(x[k])).map(([k, l, u]) => `${l} ${b1(x[k])} ${u}`).map(esc).join(' · ')}</div>${x.note ? `<div class="s">${esc(x.note)}</div>` : ''}</div></div>`).join('') || '<div class="empty">No entries yet. Weigh in and measure once a week, same time of day.</div>'}</div>
   <p class="muted" style="font-size:12px;text-align:center">Shared with ${esc(whoName(w === 'A' ? 'B' : 'A'))} like the rest of the app.</p>`;
 }
+
+/* Health check: Asian BMI cut-offs (Malaysia CPG Management of Obesity), waist-to-height ratio (NICE 2022),
+   Asian waist cut-offs (IDF / Malaysia), waist-to-hip ratio (WHO 2008), body fat ranges (ACE). */
+function healthChecks(w) {
+  const g = (D().bodygoals || {})[w] || {}, cur = bodyLatest(w), h = bNum(g.height), sex = g.sex, out = [];
+  const wt = cur.weight && cur.weight.v, wa = cur.waist && cur.waist.v, hi = cur.hips && cur.hips.v, bf = cur.bodyfat && cur.bodyfat.v;
+  if (wt && h) { const bmi = +(wt / Math.pow(h / 100, 2)).toFixed(1), lo = 18.5 * Math.pow(h / 100, 2), up = 22.9 * Math.pow(h / 100, 2);
+    const [lv, tx] = bmi < 18.5 ? ['warn', 'Underweight'] : bmi < 23 ? ['good', 'Healthy'] : bmi < 27.5 ? ['warn', 'Overweight'] : ['red', 'Obese'];
+    out.push({k: 'BMI', v: b1(bmi), lv, tx, info: `Healthy for Asians: 18.5–22.9 · for your height that is ${b1(lo)}–${b1(up)} kg`}); }
+  if (wa && h) { const r = +(wa / h).toFixed(2), [lv, tx] = r < 0.4 ? ['warn', 'Very slim'] : r < 0.5 ? ['good', 'Healthy'] : r < 0.6 ? ['warn', 'Increased risk'] : ['red', 'High risk'];
+    out.push({k: 'Waist ÷ height', v: r.toFixed(2), lv, tx, best: true, info: `Keep your waist under half your height: under ${b1(h / 2)} cm`}); }
+  if (wa && sex) { const lim = sex === 'M' ? 90 : 80, [lv, tx] = wa < lim ? ['good', 'Healthy'] : ['red', 'Above Asian limit'];
+    out.push({k: 'Waist', v: b1(wa) + ' cm', lv, tx, info: `Asian ${sex === 'M' ? 'men' : 'women'}: under ${lim} cm`}); }
+  if (wa && hi && sex) { const r = +(wa / hi).toFixed(2), lim = sex === 'M' ? 0.9 : 0.85, [lv, tx] = r < lim ? ['good', 'Healthy'] : ['warn', 'Increased risk'];
+    out.push({k: 'Waist ÷ hips', v: r.toFixed(2), lv, tx, info: `${sex === 'M' ? 'Men' : 'Women'}: under ${lim}`}); }
+  if (bf && sex) { const R = sex === 'M' ? [6, 14, 18, 25] : [14, 21, 25, 32];
+    const [lv, tx] = bf < R[0] - 4 ? ['red', 'Too low'] : bf < R[0] ? ['good', 'Essential / very lean'] : bf < R[1] ? ['good', 'Athletic'] : bf < R[2] ? ['good', 'Fit'] : bf < R[3] ? ['warn', 'Average'] : ['red', 'High'];
+    out.push({k: 'Body fat', v: b1(bf) + '%', lv, tx, info: `${sex === 'M' ? 'Men' : 'Women'}: fit ${R[1]}–${R[2] - 1}%, average ${R[2]}–${R[3] - 1}%`}); }
+  return {out, need: [!h && 'your height', !sex && 'male / female', !wa && 'a waist measurement'].filter(Boolean)};
+}
+function healthCard(w) { const {out, need} = healthChecks(w);
+  return `<h2>Health check</h2><div class="card">${out.map(c => `<div class="row" style="justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line)">
+    <div class="grow"><b>${c.k}</b>${c.best ? ' <span class="muted" style="font-size:12px">· best single check</span>' : ''}<div class="muted" style="font-size:12px;margin-top:2px">${esc(c.info)}</div></div>
+    <div style="text-align:right;min-width:92px"><div style="font-weight:700">${esc(c.v)}</div><span class="pill ${c.lv}">${c.tx}</span></div></div>`).join('')}
+    ${need.length ? `<div class="muted" style="font-size:13px;margin-top:${out.length ? 10 : 0}px">Add ${need.join(', ')} ${need.includes('a waist measurement') && need.length === 1 ? 'in + New entry' : 'in 🎯 Set goals' + (need.includes('a waist measurement') ? ' and + New entry' : '')} to see ${out.length ? 'all' : 'your'} checks.</div>` : ''}
+    <details style="margin-top:10px"><summary class="muted" style="font-size:13px">Why not just BMI?</summary><p class="muted" style="font-size:13px;margin:6px 0 0">BMI only uses weight and height, so it can't tell muscle from fat. Asians also carry more risk at a lower BMI, so Malaysia uses stricter cut-offs (healthy up to 22.9, not 24.9). Waist ÷ height measures belly fat, which is linked more closely to diabetes and heart disease, and works the same for men and women. Measure your waist at the belly button, relaxed, after breathing out. These are general screening guides, not a diagnosis.</p></details></div>`; }
 function bodySheet(id) { const w = st.bWho || S().me || 'A', x = (D().body || []).find(b => b.id === id) || {date: todayISO(), who: w, note: ''};
   sheet(`<h2>${id ? 'Edit entry' : 'New entry for ' + esc(whoName(x.who))}</h2><p class="muted" style="margin-top:-6px">Fill only what you measured.</p>
   ${field('Date', `<input type="date" id="bd" value="${x.date}">`)}
@@ -2391,10 +2420,11 @@ function saveBody(id, who) { const o = {date: val('bd') || todayISO(), note: val
   DB.save(); closeSheet(); render(); }
 function bodyGoalSheet() { const w = st.bWho || S().me || 'A', g = (D().bodygoals || {})[w] || {};
   sheet(`<h2>Goals for ${esc(whoName(w))}</h2>
-  <div class="grid2">${field('Height (cm, for BMI)', `<input id="g_height" inputmode="decimal" value="${bNum(g.height) || ''}">`)}${field('Goal date (optional)', `<input type="date" id="g_date" value="${g.date || ''}">`)}</div>
+  <div class="grid2">${field('Height (cm)', `<input id="g_height" inputmode="decimal" value="${bNum(g.height) || ''}">`)}${field('Male / female', `<select id="g_sex"><option value="">—</option><option value="M" ${g.sex === 'M' ? 'selected' : ''}>Male</option><option value="F" ${g.sex === 'F' ? 'selected' : ''}>Female</option></select>`)}</div>
+  ${field('Goal date (optional)', `<input type="date" id="g_date" value="${g.date || ''}">`)}
   <div class="grid2">${BODY.map(([k, l, u]) => field(`${l} goal (${u})`, `<input id="g_${k}" inputmode="decimal" value="${bNum(g[k]) || ''}">`)).join('')}</div>
   <button class="btn block" onclick="saveBodyGoal('${w}')">Save goals</button>`); }
-function saveBodyGoal(w) { const o = {date: val('g_date')}; ['height', ...BODY.map(b => b[0])].forEach(k => { const n = numv('g_' + k); o[k] = n > 0 && n < 1000 ? Math.round(n * 10) / 10 : null; });
+function saveBodyGoal(w) { const o = {date: val('g_date'), sex: val('g_sex')}; ['height', ...BODY.map(b => b[0])].forEach(k => { const n = numv('g_' + k); o[k] = n > 0 && n < 1000 ? Math.round(n * 10) / 10 : null; });
   D().bodygoals = D().bodygoals || {}; D().bodygoals[w] = o; DB.save(); closeSheet(); render(); toast('Goals saved'); }
 
 /* ---------- start ---------- */

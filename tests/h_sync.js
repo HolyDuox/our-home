@@ -1,5 +1,8 @@
 const { chromium } = require('playwright'); const { start, CLIENT } = require('./fakeserver');
-const URL = 'file:///mnt/project-files/family-app/index.html', PORT = 54400;
+const PORT = 54400, URL = `http://127.0.0.1:${PORT + 1}/index.html`;
+// serve the app over http (file:// localStorage is not reliably kept across reloads in headless Chromium)
+const fs = require('fs'), path = require('path'), DIR = '/mnt/project-files/family-app', TYPES = {'.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png'};
+const STATIC = require('http').createServer((q, r) => { const f = path.join(DIR, path.normalize(decodeURIComponent(q.url.split('?')[0])).replace(/^(\.\.[\/\\])+/, '')); fs.readFile(f, (e, d) => { if (e) { r.writeHead(404); return r.end(); } r.writeHead(200, {'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream'}); r.end(d); }); }).listen(PORT + 1);
 const wait = ms => new Promise(r => setTimeout(r, ms));
 (async () => {
   const srv = start(PORT); const b = await chromium.launch(); const errs = [];
@@ -69,6 +72,6 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   // UI render on both with sync card
   await A.evaluate(() => { st.tab = 'more'; st.more = 'Settings'; render(); }); await A.screenshot({ path: 'sync-a.png' });
   console.log('server', JSON.stringify(after)); console.log('errors:', errs);
-  await b.close(); srv.close();
+  await b.close(); srv.close(); STATIC.close(); process.exit(0);
   async function srvOffline(phone, off) { await fetch(`http://127.0.0.1:${PORT}/_offline`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({phone, off})}); }
 })();

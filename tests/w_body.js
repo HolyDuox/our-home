@@ -8,7 +8,7 @@ const { chromium } = require('playwright'); const { open, NASTY } = require('./c
   for (const [i, w, waist] of [[8, '82,4', 92], [4, '80.1', 90], [0, '78.6', '']]) { await p.evaluate(() => bodySheet()); await p.fill('#bd', await d(i)); await p.fill('#b_weight', w); if (waist) await p.fill('#b_waist', String(waist)); await p.evaluate(() => saveBody('', 'A')); }
   await p.evaluate(() => bodyGoalSheet()); await p.fill('#g_height', '172'); await p.fill('#g_weight', '72'); await p.fill('#g_waist', '84'); await p.evaluate(() => saveBodyGoal('A'));
   t = await txt(); ok(/78\.6 kg/.test(t) && /72 kg/.test(t) && /6\.6 kg to lose/.test(t), 'current 78.6 vs goal 72: 6.6 kg to lose');
-  ok(/BMI 26\.6/.test(t), 'BMI from height 172 = 26.6');
+  ok(/BMI[\s\S]{0,120}26\.6[\s\S]{0,20}Overweight/.test(t), 'BMI from height 172 = 26.6');
   ok(/90 cm/.test(t) && /84 cm/.test(t), 'waist keeps the latest value (90) even if the newest entry skipped it');
   ok(/37% of the way from 82\.4/.test(t), 'progress from first weigh-in: ' + (t.match(/\d+% of the way[^\n]*/) || [''])[0]);
   ok(await p.evaluate(() => !!document.querySelector('#app svg polyline')), 'weight chart drawn');
