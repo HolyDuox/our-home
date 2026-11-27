@@ -562,7 +562,7 @@ function sheet(html) { document.getElementById('sheet').innerHTML = `<div class=
   hydrateImgs();
   const f = document.querySelector('.sheet input:not([type=date]):not([type=file]),.sheet textarea'); if (f && !f.value) setTimeout(() => f.focus(), 250); }
 function closeSheet() { document.getElementById('sheet').innerHTML = ''; if (SYNC.pendingRender) { SYNC.pendingRender = false; render(); } }
-const APP_VERSION = '2026.11.27-g';
+const APP_VERSION = '2026.11.27-h';
 const val = id => (document.getElementById(id)?.value ?? '').trim();
 // numbers typed with a comma: "5,5" -> 5.5 (decimal comma), "1,000" / "12,500.50" -> thousands
 const toNum = t => { t = String(t ?? '').trim().replace(/\s|RM/gi, ''); if (/^-?\d+,\d{1,2}$/.test(t) || /^-?\d+,\d{4,}$/.test(t)) t = t.replace(',', '.'); else t = t.replace(/,/g, ''); return parseFloat(t); };
@@ -972,8 +972,9 @@ function drawNoteImgs() { const el = document.getElementById('nph'); if (!el) re
   el.innerHTML = noteImgs.map((i, k) => `<div class="thumb lg" data-img="${i}" onclick="lightbox('${i}')"><button class="rm" onclick="event.stopPropagation();noteImgs.splice(${k},1);drawNoteImgs()">×</button></div>`).join('') +
     `<label class="thumb lg add">＋<br><span>Add photo</span><input type="file" accept="image/*" multiple style="display:none" onchange="addNoteImgs(this)"></label>`; hydrateImgs(); }
 async function addNoteImgs(inp) { for (const f of inp.files) { const id = uid(); await IMG.put(id, await compress(f)); noteImgs.push(id); } drawNoteImgs(); }
+function dropPhotos(before, after) { (before || []).filter(i => !(after || []).includes(i)).forEach(i => IMG.del(i)); }
 function saveNote(id) { const o = {title: val('nt'), body: document.getElementById('nb').value, pin: document.getElementById('np').checked, updated: Date.now(), photos: [...noteImgs]}; if (!o.title && !o.body && !o.photos.length) return closeSheet();
-  if (id) Object.assign(D().notes.find(x => x.id === id), o); else D().notes.push({id: uid(), by: S().me, ...o}); DB.save(); closeSheet(); render(); }
+  if (id) { const n = D().notes.find(x => x.id === id); dropPhotos(n.photos, o.photos); Object.assign(n, o); } else D().notes.push({id: uid(), by: S().me, ...o}); DB.save(); closeSheet(); render(); }
 
 /* ----- Recipes ----- */
 function vRecipes() {
@@ -2310,7 +2311,7 @@ function routineSheet(id) { const r = D().routines.find(x => x.id === id) || {na
   <button class="btn block" onclick="saveRoutine('${id || ''}')">Save</button>${id ? `<button class="btn soft block" style="margin-top:10px" onclick="closeSheet();xDoRoutine('${id}')">✓ Log it as done today</button><button class="btn red block" style="margin-top:10px" onclick="confirmDel(()=>{(D().routines.find(x=>x.id==='${id}').photos||[]).forEach(i=>IMG.del(i));delFrom('routines','${id}')})">Delete</button>` : ''}`); drawNoteImgs(); }
 function saveRoutine(id) { if (!val('rn')) return toast('Name the routine');
   const o = {name: val('rn'), type: val('rt'), who: val('rw'), days: [...document.querySelectorAll('#rdays .chip.on')].map(b => +b.dataset.d), minutes: Math.max(0, Math.round(numv('rm') || 0)), exercises: (document.getElementById('rx').value || '').trim(), note: (document.getElementById('rno').value || '').trim(), photos: [...noteImgs]};
-  if (id) Object.assign(D().routines.find(x => x.id === id), o); else { D().routines.push({id: uid(), by: S().me, ...o}); act('💪', `added the routine "${o.name}"`); }
+  if (id) { const r = D().routines.find(x => x.id === id); dropPhotos(r.photos, o.photos); Object.assign(r, o); } else { D().routines.push({id: uid(), by: S().me, ...o}); act('💪', `added the routine "${o.name}"`); }
   DB.save(); closeSheet(); render(); }
 function xDoRoutine(id) { const r = D().routines.find(x => x.id === id); if (!r) return;
   D().workouts.push({id: uid(), date: todayISO(), at: Date.now(), who: r.who === 'both' ? 'both' : r.who, type: r.type, title: r.name, minutes: r.minutes || 0, routineId: r.id, by: S().me});
@@ -2401,7 +2402,7 @@ function healthChecks(w) {
       n: wa, sc: [lim - 25, lim + 25], bands: [[lim, 'good', String(lim)], [999, 'red', '']], gap: wa >= lim ? `${b1(wa - lim + 0.1)} cm to go` : ''}); }
   if (wa && hi && sex) { const r = +(wa / hi).toFixed(2), lim = sex === 'M' ? 0.9 : 0.85, [lv, tx] = r < lim ? ['good', 'Healthy'] : ['warn', 'Increased risk'];
     out.push({k: 'Waist ÷ hips', v: r.toFixed(2), lv, tx, info: `${sex === 'M' ? 'Men' : 'Women'}: under ${lim}`,
-      n: r, sc: [0.7, 1.1], bands: [[lim, 'good', String(lim)], [9, 'warn', '']], gap: ''}); }
+      n: r, sc: [0.7, 1.1], bands: [[lim, 'good', String(lim)], [9, 'warn', '']], gap: r >= lim ? `${b1(wa - (lim - 0.005) * hi)} cm off your waist to reach healthy` : ''}); }
   if (bf && sex) { const R = sex === 'M' ? [6, 14, 18, 25] : [14, 21, 25, 32];
     const [lv, tx] = bf < R[0] - 4 ? ['red', 'Too low'] : bf < R[0] ? ['good', 'Essential / very lean'] : bf < R[1] ? ['good', 'Athletic'] : bf < R[2] ? ['good', 'Fit'] : bf < R[3] ? ['warn', 'Average'] : ['red', 'High'];
     out.push({k: 'Body fat', v: b1(bf) + '%', lv, tx, info: `${sex === 'M' ? 'Men' : 'Women'}: fit ${R[1]}–${R[2] - 1}%, average ${R[2]}–${R[3] - 1}%`,
@@ -2416,6 +2417,9 @@ function hGauge(c) { if (!isFinite(c.n)) return ''; const [a, z] = c.sc, pos = v
     <b class="hgm" style="left:${m}%;border-color:${LVC[c.lv]}"></b></div>
     <div class="hgl">${segs.filter(g => g.lb && g.to < z).map(g => `<span style="left:${pos(g.to)}%">${g.lb}</span>`).join('')}</div>
     ${c.gap ? `<div style="font-size:12px;margin-top:2px;color:${LVC[c.lv]};font-weight:600">${esc(c.gap)}</div>` : c.lv === 'good' ? '<div style="font-size:12px;margin-top:2px;color:var(--good);font-weight:600">In the healthy zone ✓</div>' : ''}</div>`; }
+function hcStale(w) { const cur = bodyLatest(w), lim = addDaysISO(todayISO(), -60);
+  const old = [['weight', 'weight'], ['waist', 'waist'], ['hips', 'hips'], ['bodyfat', 'body fat']].filter(([k]) => cur[k] && cur[k].date < lim).map(([k, l]) => `${l} (${fmtDate(cur[k].date, {day: 'numeric', month: 'short', year: 'numeric'})})`);
+  return old.length ? `<div class="muted" style="font-size:12px;margin-top:10px">⏳ Using older numbers for ${old.join(', ')}. Measure again for an up-to-date check.</div>` : ''; }
 function healthCard(w) { const {out, need} = healthChecks(w);
   return `<h2>Health check</h2><div class="card">${out.map(c => `<div class="hrow"><div class="row" style="justify-content:space-between;align-items:flex-start">
     <div class="grow"><b>${c.k}</b>${c.best ? ' <span class="muted" style="font-size:12px">· best single check</span>' : ''}<div class="muted" style="font-size:12px;margin-top:2px">${esc(c.info)}</div></div>
@@ -2424,6 +2428,7 @@ function healthCard(w) { const {out, need} = healthChecks(w);
       return (miss ? `<div style="margin-top:${out.length ? 12 : 0}px"><div class="muted" style="font-size:13px;margin-bottom:8px">To run the checks I need your height and male / female:</div>
       <div class="row" style="gap:8px"><input id="hc_h" inputmode="decimal" placeholder="Height cm" value="${bNum(g.height) || ''}" style="flex:1;min-width:0"><select id="hc_s" style="flex:1;min-width:0"><option value="">Male / female</option><option value="M" ${g.sex === 'M' ? 'selected' : ''}>Male</option><option value="F" ${g.sex === 'F' ? 'selected' : ''}>Female</option></select><button class="btn sm" onclick="hcSave('${w}')">Save</button></div></div>` : '')
       + (!miss && need.includes('a waist measurement') ? `<div class="muted" style="font-size:13px;margin-top:${out.length ? 10 : 0}px">Add a waist measurement in + New entry to see the waist checks.</div>` : ''); })()}
+    ${out.length ? hcStale(w) : ''}
     <details style="margin-top:10px"><summary class="muted" style="font-size:13px">Why not just BMI?</summary><p class="muted" style="font-size:13px;margin:6px 0 0">BMI only uses weight and height, so it can't tell muscle from fat. Asians also carry more risk at a lower BMI, so Malaysia uses stricter cut-offs (healthy up to 22.9, not 24.9). Waist ÷ height measures belly fat, which is linked more closely to diabetes and heart disease, and works the same for men and women. Measure your waist at the belly button, relaxed, after breathing out. These are general screening guides, not a diagnosis.</p></details></div>`; }
 function hcSave(w) { const h = numv('hc_h'), sx = val('hc_s'); if (!(h > 80 && h < 250)) return toast('Enter your height in cm, e.g. 165'); if (!sx) return toast('Choose male or female');
   D().bodygoals = D().bodygoals || {}; D().bodygoals[w] = {...(D().bodygoals[w] || {}), height: Math.round(h * 10) / 10, sex: sx}; DB.save(); render(); toast('Health check updated'); }

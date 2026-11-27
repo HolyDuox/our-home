@@ -51,3 +51,10 @@ Found and fixed:
 3. Invalid dates showed as "Invalid Date". Now "No date".
 Also: sync test now serves the app over http; the earlier occasional failure was headless Chromium dropping file:// localStorage on reload, not an app bug (8/8 clean).
 Full suite re-run: all clean (hostile 4169 clicks, monkey 3000 steps, sync 3× 16/16, 46/46 + 41/41 targeted).
+
+## Run 5 — review pass (2026-11-27, v2026.11.27-h)
+Looked for things missed in earlier runs. Gaps found and fixed:
+1. Photos removed from a routine or note were left on the phone; they are now freed when you save.
+2. Health check silently used old measurements; it now warns when a number it uses is over 60 days old.
+3. Waist ÷ hips had no "how far to go"; it now says how many cm off the waist reaches healthy.
+New test zz_review.js. Full suite re-run (28 scripts incl. sync ×3): 0 fails. Log: rerun-2026-11-27b.log
