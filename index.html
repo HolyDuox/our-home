@@ -242,7 +242,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const RM = n => 'RM' + (Number(n) || 0).toLocaleString('en-MY', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 // add months without spilling over (31 Jan + 1 month = 28/29 Feb, not 3 Mar)
 const addMonths = (iso, n) => { const [y, m, d] = iso.split('-').map(Number), t = new Date(y, m - 1 + n, 1), dim = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate(); t.setDate(Math.min(d, dim)); return isoOf(t); };
-const fmtDate = (iso, opt = {day:'numeric', month:'short', year:'numeric'}) => iso ? new Date(iso + 'T00:00').toLocaleDateString('en-GB', opt) : '';
+const fmtDate = (iso, opt = {day:'numeric', month:'short', year:'numeric'}) => { if (!iso) return ''; const d = new Date(iso + 'T00:00'); return isNaN(d) ? 'No date' : d.toLocaleDateString('en-GB', opt); };
 const daysBetween = (a, b) => Math.round((new Date(b + 'T00:00') - new Date(a + 'T00:00')) / 86400000);
 
 const DEFAULT = {
@@ -561,7 +561,7 @@ function sheet(html) { document.getElementById('sheet').innerHTML = `<div class=
   hydrateImgs();
   const f = document.querySelector('.sheet input:not([type=date]):not([type=file]),.sheet textarea'); if (f && !f.value) setTimeout(() => f.focus(), 250); }
 function closeSheet() { document.getElementById('sheet').innerHTML = ''; if (SYNC.pendingRender) { SYNC.pendingRender = false; render(); } }
-const APP_VERSION = '2026.11.27-e';
+const APP_VERSION = '2026.11.27-f';
 const val = id => (document.getElementById(id)?.value ?? '').trim();
 // numbers typed with a comma: "5,5" -> 5.5 (decimal comma), "1,000" / "12,500.50" -> thousands
 const toNum = t => { t = String(t ?? '').trim().replace(/\s|RM/gi, ''); if (/^-?\d+,\d{1,2}$/.test(t) || /^-?\d+,\d{4,}$/.test(t)) t = t.replace(',', '.'); else t = t.replace(/,/g, ''); return parseFloat(t); };
@@ -2248,10 +2248,9 @@ const xWho = w => w === 'both' ? 'Together' : whoName(w);
 function xWeekStart(iso) { const d = new Date(iso + 'T00:00'); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return isoOf(d); }
 const addDaysISO = (iso, n) => { const d = new Date(iso + 'T00:00'); d.setDate(d.getDate() + n); return isoOf(d); };
 const xFor = (w, x) => x.who === w || x.who === 'both';
-function xStreak(w) { const logs = (D().workouts || []).filter(x => xFor(w, x)); let wk = xWeekStart(todayISO()), n = 0;
-  const has = s => logs.some(x => x.date >= s && x.date <= addDaysISO(s, 6));
-  if (!has(wk)) wk = addDaysISO(wk, -7);      // this week not started yet: count from last week
-  while (has(wk) && n < 520) { n++; wk = addDaysISO(wk, -7); } return n; }
+function xStreak(w) { const weeks = new Set(); (D().workouts || []).forEach(x => { if (xFor(w, x) && /^\d{4}-\d{2}-\d{2}$/.test(x.date || '')) weeks.add(xWeekStart(x.date)); });
+  let wk = xWeekStart(todayISO()), n = 0; if (!weeks.has(wk)) wk = addDaysISO(wk, -7);      // this week not started yet: count from last week
+  while (weeks.has(wk) && n < 520) { n++; wk = addDaysISO(wk, -7); } return n; }
 function vExercise() {
   ['routines', 'workouts', 'fitgoals'].forEach(k => { D()[k] = D()[k] || []; });
   const tab = st.xTab || 'week';
@@ -2348,6 +2347,7 @@ const b1 = n => String(+Number(n).toFixed(1));
 function bodyLatest(w) { const out = {}; [...(D().body || [])].filter(x => x.who === w).sort((a, b) => a.date.localeCompare(b.date) || (a.at || 0) - (b.at || 0))
   .forEach(x => BODY.forEach(([k]) => { if (bNum(x[k])) out[k] = {v: bNum(x[k]), date: x.date}; })); return out; }
 function bodyChart(pts, goal) {
+  pts = pts.filter(p => /^\d{4}-\d{2}-\d{2}$/.test(p.date || '') && !isNaN(new Date(p.date).getTime()) && isFinite(p.v));
   if (pts.length < 2) return '';
   const W = 320, H = 120, P = 8, vs = pts.map(p => p.v).concat(goal ? [goal] : []), lo = Math.min(...vs), hi = Math.max(...vs), rg = (hi - lo) || 1;
   const t0 = new Date(pts[0].date).getTime(), t1 = new Date(pts.at(-1).date).getTime(), tr = (t1 - t0) || 1;

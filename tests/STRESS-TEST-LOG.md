@@ -39,3 +39,15 @@ Found and fixed:
 1. Numbers typed with a decimal comma (5,5 on some Android keyboards) were read as 5. Now all money/number fields read 5,5 as 5.5 and 1,000 as 1000.
 2. Very small gold weights (0.001 g) displayed as 0 g. Now shows 3 decimals under 1 g.
 Full suite re-run after fixes: all clean (smoke, heavy, storage, hostile 3447 clicks, edge dates, monkey 3000 steps, PIN/backup, sync 16 checks, plans, wealth, arrange, 46/46 new).
+
+## Run 4 — 2026-11-27 (Exercise, Body + health check, routine photos, holidays)
+New suite `z_stress4.js` (41 checks): weight chart edge cases (identical values, same dates, broken dates, 1e9 kg), health-check
+boundaries (BMI 22.9 / 23.7, waist÷height 0.50), junk values, inline height form, same-day merge per person, 1000 rapid saves,
+500 routines / 4000 workouts / 300 goals, deleted routines, week Mon–Sun edges, routine with 20 photos, cancel without save,
+backup/restore incl. routine photos, sync round-trip of all new collections, older data without the new sections, all holidays shown.
+Found and fixed:
+1. Weight chart drew broken lines (console errors) when an entry had an invalid date. Bad dates are now skipped.
+2. "This week" took 0.7 s with ~5 years of workouts (streak scanned the log once per week). Now one pass: 15 ms.
+3. Invalid dates showed as "Invalid Date". Now "No date".
+Also: sync test now serves the app over http; the earlier occasional failure was headless Chromium dropping file:// localStorage on reload, not an app bug (8/8 clean).
+Full suite re-run: all clean (hostile 4169 clicks, monkey 3000 steps, sync 3× 16/16, 46/46 + 41/41 targeted).

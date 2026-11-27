@@ -1,0 +1,57 @@
+== a_smoke
+SMOKE OK
+== b_heavy
+seeded {"chars":4648524,"saveMs":70}
+errors: []
+== b2_storage
+errors: []
+== c_hostile
+clicks 4169
+HOSTILE OK
+== d_edge
+== e_monkey
+seed 1: 3000 steps in 10s, errors 0, data {"ok":true,"tasks":3,"exp":0,"kids":1,"events":0,"notes":0}, after reload: renders ok
+== f_pin_backup
+errors: []
+== g_check
+== h_sync
+PASS repair brings shared data back, phones identical
+errors: []
+== h_sync
+PASS repair brings shared data back, phones identical
+errors: []
+== h_sync
+PASS repair brings shared data back, phones identical
+errors: []
+== i_synccost
+== j_realclient
+errors []
+== l_plans
+errors []
+== o_wealth
+errors []
+== p_ent
+== q_arrange
+errors []
+== r_newstress
+ok   open + save every weird item without errors
+ok   no page errors overall 
+46/46 passed
+== s_scroll
+[] ALL OK
+== t_rename
+RENAME OK []
+== u_hols
+[] ALL OK
+== v_exercise
+ok   open + save weird items without errors
+[] ALL OK
+== w_body
+[] ALL OK
+== x_hc
+[] ALL OK
+== y_bodyedit
+[] ALL OK
+== z_stress4
+ok   no page errors overall 
+41/41 passed
