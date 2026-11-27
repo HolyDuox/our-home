@@ -249,7 +249,7 @@ const DEFAULT = {
   settings: { nameA: 'You', nameB: 'Partner', me: 'A', startDate: '', babyName: '', babyDob: '', theme: 'auto', zone: 'WLY01', reminders: {bills: true, events: true, tasks: true, vaccines: true, who: 'both'} },
   tasks: [], restock: [], restockCats: ['Pantry', 'Baby', 'Household'],
   events: [], bills: [], growth: [], vaccines: {}, milestones: {}, memories: [],
-  notes: [], recipes: [], wishes: [], goals: [], expenses: [], messages: [], babylog: [], sleepStart: null, settlements: [], activity: [], meals: {}, scheduled: [], cars: [], services: [], contacts: [], watch: [], activities: [], karaoke: [], gold: [], investments: [], goldHist: []
+  notes: [], recipes: [], wishes: [], goals: [], expenses: [], messages: [], babylog: [], sleepStart: null, settlements: [], activity: [], meals: {}, scheduled: [], cars: [], services: [], contacts: [], watch: [], activities: [], karaoke: [], routines: [], workouts: [], fitgoals: [], gold: [], investments: [], goldHist: []
 };
 const DB = {
   data: null,
@@ -536,7 +536,7 @@ const I = {
 /* ---------- routing ---------- */
 const TABS = [['home','Home',I.home],['tasks','Tasks',I.tasks],['restock','Kitchen',I.pot],['kids','Kids',I.kid],['calendar','Plans',I.cal],['money','Finance',I.wallet],['more','More',I.more]];
 const MONEY = ['Overview','Expenses','Bills','Savings goals','Wealth','Wishlist'];
-const MORE = ['Memories','Notes','Car','Contacts','Settings'];
+const MORE = ['Memories','Notes','Exercise','Car','Contacts','Settings'];
 const st = { tab: 'home', more: 'Memories', restockCat: null, calY: new Date().getFullYear(), calM: new Date().getMonth(), calSel: null,
   babyTab: 'Today', carSel: null, cGroup: 'All', cq: '', commitView: 'monthly', restockView: 'list', mealWeek: 0, money: 'Overview', recipeSec: 'General', wishCat: 'All', expY: new Date().getFullYear(), expM: new Date().getMonth(), q: '', openBand: null };
 
@@ -561,7 +561,7 @@ function sheet(html) { document.getElementById('sheet').innerHTML = `<div class=
   hydrateImgs();
   const f = document.querySelector('.sheet input:not([type=date]):not([type=file]),.sheet textarea'); if (f && !f.value) setTimeout(() => f.focus(), 250); }
 function closeSheet() { document.getElementById('sheet').innerHTML = ''; if (SYNC.pendingRender) { SYNC.pendingRender = false; render(); } }
-const APP_VERSION = '2026.11.19-a';
+const APP_VERSION = '2026.11.27-a';
 const val = id => (document.getElementById(id)?.value ?? '').trim();
 // numbers typed with a comma: "5,5" -> 5.5 (decimal comma), "1,000" / "12,500.50" -> thousands
 const toNum = t => { t = String(t ?? '').trim().replace(/\s|RM/gi, ''); if (/^-?\d+,\d{1,2}$/.test(t) || /^-?\d+,\d{4,}$/.test(t)) t = t.replace(',', '.'); else t = t.replace(/,/g, ''); return parseFloat(t); };
@@ -670,6 +670,8 @@ function vSearch() {
   D().recipes.forEach(x => (hit(x.name) || x.ingredients.some(hit)) && r.push(['Recipe', x.name, `st.restockView='recipes';go('restock');recipeView('${x.id}')`]));
   D().wishes.forEach(x => hit(x.name) && r.push(['Wish', x.name, "go('money','Wishlist')"]));
   (D().watch || []).forEach(x => hit(x.title) && r.push(['To watch', x.title, `st.planView='watch';go('calendar');watchSheet('${x.id}')`]));
+  (D().routines || []).forEach(x => (hit(x.name) || hit(x.exercises || '')) && r.push(['Exercise', x.name, `st.xTab='routines';go('more','Exercise');routineSheet('${x.id}')`]));
+  (D().fitgoals || []).forEach(x => hit(x.title) && r.push(['Exercise goal', x.title, `st.xTab='goals';go('more','Exercise');fitSheet('${x.id}')`]));
   (D().karaoke || []).forEach(x => (hit(x.title) || hit(x.artist || '')) && r.push(['Karaoke', x.title, `st.planView='karaoke';go('calendar');kSheet('${x.id}')`]));
   (D().activities || []).forEach(x => hit(x.title) && r.push(['Activity', x.title, `st.planView='act';go('calendar');actSheet('${x.id}')`]));
   D().memories.forEach(x => hit(x.title) && r.push(['Memory', x.title, "go('more','Memories')"]));
@@ -833,7 +835,7 @@ document.addEventListener('touchend', e => { if (tx === null) return; const dx =
 
 /* =================== MORE =================== */
 function vMore() {
-  const body = {Memories: vMemories, Notes: vNotes, Recipes: vRecipes, Car: vCar, Contacts: vContacts, Settings: vSettings}[st.more]();
+  const body = {Memories: vMemories, Notes: vNotes, Recipes: vRecipes, Exercise: vExercise, Car: vCar, Contacts: vContacts, Settings: vSettings}[st.more]();
   return `<div class="chips" style="margin-bottom:14px" id="morechips">${MORE.map(m => `<button class="chip ${m === st.more ? 'on' : ''}" onclick="go('more','${m}')">${m === 'Settings' ? '⚙︎ ' : ''}${m}</button>`).join('')}</div>${body}`;
 }
 const _ar = afterRender; afterRender = function () { _ar(); const c = document.querySelector('#morechips .on, #moneychips .on'); if (c) { const r = c.parentNode; r.scrollLeft = c.offsetLeft - r.offsetLeft - (r.clientWidth - c.offsetWidth) / 2; } };   // scroll the chip row sideways only, never the page
@@ -2236,6 +2238,105 @@ function saveInv(id) { if (!val('in')) return toast('Give it a name'); const rat
     if (b) Object.assign(b, bo); else D().bills.push({id: bid, paid: [], remind: '1d', ...bo}); }
   else if (b) D().bills = D().bills.filter(x => x.id !== bid);
   DB.save(); closeSheet(); render(); }
+
+
+/* =================== EXERCISE (routines, workout log, training goals) =================== */
+const XTYPES = [['Gym', '🏋️'], ['Run', '🏃'], ['Walk', '🚶'], ['Cycling', '🚴'], ['Swim', '🏊'], ['Badminton', '🏸'], ['Futsal', '⚽'], ['Yoga', '🧘'], ['Home workout', '💪'], ['Hiking', '🥾'], ['Other', '✨']];
+const xIcon = t => (XTYPES.find(x => x[0] === t) || XTYPES.at(-1))[1];
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const xWho = w => w === 'both' ? 'Together' : whoName(w);
+function xWeekStart(iso) { const d = new Date(iso + 'T00:00'); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return isoOf(d); }
+const addDaysISO = (iso, n) => { const d = new Date(iso + 'T00:00'); d.setDate(d.getDate() + n); return isoOf(d); };
+const xFor = (w, x) => x.who === w || x.who === 'both';
+function xStreak(w) { const logs = (D().workouts || []).filter(x => xFor(w, x)); let wk = xWeekStart(todayISO()), n = 0;
+  const has = s => logs.some(x => x.date >= s && x.date <= addDaysISO(s, 6));
+  if (!has(wk)) wk = addDaysISO(wk, -7);      // this week not started yet: count from last week
+  while (has(wk) && n < 520) { n++; wk = addDaysISO(wk, -7); } return n; }
+function vExercise() {
+  ['routines', 'workouts', 'fitgoals'].forEach(k => { D()[k] = D()[k] || []; });
+  const tab = st.xTab || 'week';
+  const tabs = `<div class="chips" style="margin-bottom:12px">${[['week', '📅 This week'], ['routines', '📋 Routines'], ['goals', '🎯 Goals']].map(([k, l]) => `<button class="chip ${tab === k ? 'on' : ''}" onclick="st.xTab='${k}';render()">${l}</button>`).join('')}</div>`;
+  return `<h1>Exercise 💪</h1><p class="sub">Our routines, workouts and the training we want to do.</p>${tabs}${tab === 'routines' ? vRoutines() : tab === 'goals' ? vFitGoals() : vXWeek()}`;
+}
+function vXWeek() {
+  const t = todayISO(), ws = xWeekStart(t), days = Array.from({length: 7}, (_, i) => addDaysISO(ws, i)), logs = D().workouts;
+  const wk = logs.filter(x => x.date >= ws && x.date <= days[6]);
+  const person = w => { const l = wk.filter(x => xFor(w, x)); return `<div><div class="muted" style="font-size:13px">${esc(whoName(w))}</div><div style="font-weight:700;font-size:20px">${l.length}<span class="muted" style="font-size:13px;font-weight:500"> workout${l.length === 1 ? '' : 's'}</span></div>
+    <div class="muted" style="font-size:12px">${l.reduce((s, x) => s + (Number(x.minutes) || 0), 0)} min${(k => k > 1 ? ` · 🔥 ${k} weeks` : '')(xStreak(w))}</div></div>`; };
+  const dow = new Date(t + 'T00:00').getDay(), todays = D().routines.filter(r => (r.days || []).includes(dow));
+  const doneToday = r => logs.some(x => x.date === t && x.routineId === r.id);
+  const recent = [...logs].sort((a, b) => b.date.localeCompare(a.date) || (b.at || 0) - (a.at || 0)).slice(0, 15);
+  return `<div class="card stat" style="text-align:center">${person('A')}${person('B')}</div>
+  <div class="card"><div class="row" style="justify-content:space-between">${days.map(d => { const l = wk.filter(x => x.date === d), a = l.some(x => xFor('A', x)), b = l.some(x => xFor('B', x));
+    return `<div style="text-align:center;flex:1"><div class="muted" style="font-size:12px">${DOW[new Date(d + 'T00:00').getDay()]}</div><div style="font-weight:${d === t ? 800 : 500};${d === t ? 'color:var(--accent)' : ''}">${+d.slice(8)}</div>
+    <div style="display:flex;gap:3px;justify-content:center;height:8px;margin-top:3px">${a ? '<i style="width:7px;height:7px;border-radius:50%;background:var(--accent)"></i>' : ''}${b ? '<i style="width:7px;height:7px;border-radius:50%;background:#e57fa5"></i>' : ''}</div></div>`; }).join('')}</div>
+    <div class="muted" style="font-size:12px;margin-top:8px;text-align:center"><i style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent)"></i> ${esc(S().nameA)} &nbsp; <i style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#e57fa5"></i> ${esc(S().nameB)}</div></div>
+  ${todays.length ? `<h2>Today's plan</h2><div class="list">${todays.map(r => `<div class="item ${doneToday(r) ? 'done' : ''}"><div class="ico">${xIcon(r.type)}</div><div class="grow" onclick="routineSheet('${r.id}')"><div class="t">${esc(r.name)}</div><div class="s">${esc(xWho(r.who))}${r.minutes ? ' · ' + r.minutes + ' min' : ''}</div></div>
+    ${doneToday(r) ? '<span class="pill good">Done ✓</span>' : `<button class="btn soft sm" onclick="xDoRoutine('${r.id}')">Done</button>`}</div>`).join('')}</div>` : ''}
+  <h2>Recent workouts</h2><div class="list">${recent.map(x => `<div class="item" onclick="workoutSheet('${x.id}')"><div class="ico">${xIcon(x.type)}</div><div class="grow"><div class="t">${esc(x.title || x.type)}</div>
+    <div class="s">${[fmtDate(x.date, {weekday: 'short', day: 'numeric', month: 'short'}), xWho(x.who), Number(x.minutes) > 0 ? x.minutes + ' min' : '', Number(x.km) > 0 ? x.km + ' km' : '', x.feel > 0 ? '⭐'.repeat(Math.min(5, x.feel)) : ''].filter(Boolean).map(esc).join(' · ')}</div>${x.note ? `<div class="s">${esc(x.note)}</div>` : ''}</div></div>`).join('') || '<div class="empty">No workouts logged yet. Tap + Log workout after you train.</div>'}</div>
+  <button class="fab" onclick="workoutSheet()">+ Log workout</button>`;
+}
+function vRoutines() {
+  const f = st.xWho || 'all', l = D().routines.filter(r => f === 'all' || xFor(f, r)).sort((a, b) => (Math.min(...(a.days || [9]).map(d => (d + 6) % 7)) - Math.min(...(b.days || [9]).map(d => (d + 6) % 7))) || a.name.localeCompare(b.name));
+  return `<div class="chips" style="margin-bottom:10px">${[['all', 'All'], ['A', whoName('A')], ['B', whoName('B')]].map(([k, lb]) => `<button class="chip sm ${f === k ? 'on' : ''}" onclick="st.xWho='${k}';render()">${esc(lb)}</button>`).join('')}</div>
+  <div class="list">${l.map(r => { const ex = (r.exercises || '').split('\n').map(s => s.trim()).filter(Boolean);
+    return `<div class="item" onclick="routineSheet('${r.id}')"><div class="ico">${xIcon(r.type)}</div><div class="grow"><div class="t">${esc(r.name)}</div>
+    <div class="s">${[xWho(r.who), (r.days || []).length === 7 ? 'Every day' : [1, 2, 3, 4, 5, 6, 0].filter(d => (r.days || []).includes(d)).map(d => DOW[d]).join(', ') || 'Any day', r.minutes ? r.minutes + ' min' : ''].filter(Boolean).map(esc).join(' · ')}</div>
+    ${ex.length ? `<div class="s" style="margin-top:4px">${ex.slice(0, 4).map(esc).join('<br>')}${ex.length > 4 ? `<br>+${ex.length - 4} more` : ''}</div>` : ''}</div></div>`; }).join('') || '<div class="empty">No routines yet. Add one, like "Leg day: Squat 3×10, Lunges 3×12" or "Morning run 5 km, Mon/Wed/Fri".</div>'}</div>
+  <button class="fab" onclick="routineSheet()">+ New routine</button>`;
+}
+function vFitGoals() {
+  const g = D().fitgoals, open = g.filter(x => !x.done).sort((a, b) => (a.date || '9').localeCompare(b.date || '9')), done = g.filter(x => x.done).sort((a, b) => (b.doneOn || '').localeCompare(a.doneOn || ''));
+  const row = x => { const dl = x.date && !x.done ? Math.ceil((new Date(x.date + 'T00:00') - new Date(todayISO() + 'T00:00')) / 864e5) : null;
+    return `<div class="item ${x.done ? 'done' : ''}"><button class="tick ${x.done ? 'on' : ''}" onclick="fitDone('${x.id}')">${x.done ? I.check : ''}</button><div class="grow" onclick="fitSheet('${x.id}')"><div class="t">${xIcon(x.type)} ${esc(x.title)}</div>
+    <div class="s">${[xWho(x.who), x.status === 'want' ? 'Want to try' : x.status === 'doing' ? 'Training for it' : '', x.done ? 'Done ' + fmtDate(x.doneOn, {day: 'numeric', month: 'short', year: 'numeric'}) : x.date ? fmtDate(x.date, {day: 'numeric', month: 'short', year: 'numeric'}) + (dl !== null ? (dl >= 0 ? ` · ${dl} days to go` : ' · date passed') : '') : ''].filter(Boolean).map(esc).join(' · ')}</div>
+    ${x.note ? `<div class="s">${esc(x.note)}</div>` : ''}</div></div>`; };
+  return `<div class="list">${open.map(row).join('') || '<div class="empty">Nothing yet. Add a goal (Run a 10K, Hike Gunung Datuk) or a training you want to try (Muay Thai, Pilates, a fun run together).</div>'}</div>
+  ${done.length ? `<h2>Done 🎉</h2><div class="list">${done.map(row).join('')}</div>` : ''}
+  <button class="fab" onclick="fitSheet()">+ New goal</button>`;
+}
+const xWhoSel = (id, v, both = 'Together') => `<select id="${id}">${[['A', whoName('A')], ['B', whoName('B')], ['both', both]].map(([k, l]) => `<option value="${k}" ${v === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+const xTypeSel = (id, v) => `<select id="${id}">${XTYPES.map(([t, ic]) => `<option value="${t}" ${v === t ? 'selected' : ''}>${ic} ${t}</option>`).join('')}</select>`;
+function routineSheet(id) { const r = D().routines.find(x => x.id === id) || {name: '', type: 'Gym', who: S().me, days: [], minutes: '', exercises: '', note: ''};
+  sheet(`<h2>${id ? 'Edit routine' : 'New routine'}</h2>${field('Name', `<input id="rn" value="${esc(r.name)}" placeholder="e.g. Leg day, Morning run">`)}
+  <div class="grid2">${field('Type', xTypeSel('rt', r.type))}${field('Who', xWhoSel('rw', r.who))}</div>
+  ${field('Days', `<div class="chips" id="rdays" style="flex-wrap:wrap">${[1, 2, 3, 4, 5, 6, 0].map(d => `<button type="button" class="chip sm ${(r.days || []).includes(d) ? 'on' : ''}" data-d="${d}" onclick="this.classList.toggle('on')">${DOW[d]}</button>`).join('')}</div>`)}
+  ${field('Minutes (about)', `<input id="rm" inputmode="numeric" value="${r.minutes || ''}" placeholder="e.g. 45">`)}
+  ${field('Exercises, one per line', `<textarea id="rx" rows="5" placeholder="Squat 3×10 · 40 kg&#10;Lunges 3×12&#10;Plank 3×45s">${esc(r.exercises || '')}</textarea>`)}
+  ${field('Notes', `<input id="rno" value="${esc(r.note || '')}" placeholder="e.g. Warm up 10 min first">`)}
+  <button class="btn block" onclick="saveRoutine('${id || ''}')">Save</button>${id ? `<button class="btn soft block" style="margin-top:10px" onclick="closeSheet();xDoRoutine('${id}')">✓ Log it as done today</button><button class="btn red block" style="margin-top:10px" onclick="confirmDel(()=>delFrom('routines','${id}'))">Delete</button>` : ''}`); }
+function saveRoutine(id) { if (!val('rn')) return toast('Name the routine');
+  const o = {name: val('rn'), type: val('rt'), who: val('rw'), days: [...document.querySelectorAll('#rdays .chip.on')].map(b => +b.dataset.d), minutes: Math.max(0, Math.round(numv('rm') || 0)), exercises: (document.getElementById('rx').value || '').trim(), note: val('rno')};
+  if (id) Object.assign(D().routines.find(x => x.id === id), o); else { D().routines.push({id: uid(), by: S().me, ...o}); act('💪', `added the routine "${o.name}"`); }
+  DB.save(); closeSheet(); render(); }
+function xDoRoutine(id) { const r = D().routines.find(x => x.id === id); if (!r) return;
+  D().workouts.push({id: uid(), date: todayISO(), at: Date.now(), who: r.who === 'both' ? 'both' : r.who, type: r.type, title: r.name, minutes: r.minutes || 0, routineId: r.id, by: S().me});
+  act(xIcon(r.type), `did ${r.name}`); DB.save(); render(); toast('Nice one! 💪 Logged'); }
+function workoutSheet(id) { const x = D().workouts.find(w => w.id === id) || {date: todayISO(), who: S().me, type: 'Gym', title: '', minutes: '', km: '', feel: 0, note: ''};
+  sheet(`<h2>${id ? 'Edit workout' : 'Log a workout'}</h2>
+  ${D().routines.length && !id ? field('From a routine (optional)', `<select id="wr" onchange="const r=D().routines.find(x=>x.id===this.value);if(r){document.getElementById('wt').value=r.name;document.getElementById('wty').value=r.type;document.getElementById('wm').value=r.minutes||'';document.getElementById('ww').value=r.who}"><option value="">—</option>${D().routines.map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('')}</select>`) : ''}
+  ${field('What did you do', `<input id="wt" value="${esc(x.title || '')}" placeholder="e.g. Upper body, 5 km run">`)}
+  <div class="grid2">${field('Type', xTypeSel('wty', x.type))}${field('Who', xWhoSel('ww', x.who))}</div>
+  <div class="grid2">${field('Date', `<input type="date" id="wd" value="${x.date}">`)}${field('Minutes', `<input id="wm" inputmode="numeric" value="${x.minutes || ''}">`)}</div>
+  <div class="grid2">${field('Distance km (optional)', `<input id="wk" inputmode="decimal" value="${x.km || ''}">`)}${field('How did it feel', `<div class="chips" id="wf">${[1, 2, 3, 4, 5].map(n => `<button type="button" class="chip sm ${x.feel === n ? 'on' : ''}" data-f="${n}" onclick="document.querySelectorAll('#wf .chip').forEach(c=>c.classList.toggle('on',c===this))">${n}⭐</button>`).join('')}</div>`)}</div>
+  ${field('Notes', `<input id="wn" value="${esc(x.note || '')}" placeholder="e.g. New best: squat 60 kg">`)}
+  <button class="btn block" onclick="saveWorkout('${id || ''}')">Save</button>${id ? `<button class="btn red block" style="margin-top:10px" onclick="confirmDel(()=>delFrom('workouts','${id}'))">Delete</button>` : ''}`); }
+function saveWorkout(id) { const ty = val('wty'), f = document.querySelector('#wf .chip.on');
+  const o = {title: val('wt') || ty, type: ty, who: val('ww'), date: val('wd') || todayISO(), minutes: Math.max(0, Math.round(numv('wm') || 0)), km: Math.max(0, numv('wk') || 0), feel: f ? +f.dataset.f : 0, note: val('wn')};
+  const r = document.getElementById('wr'); if (r && r.value) o.routineId = r.value;
+  if (id) Object.assign(D().workouts.find(x => x.id === id), o); else { D().workouts.push({id: uid(), at: Date.now(), by: S().me, ...o}); act(xIcon(ty), `logged ${o.title}`); }
+  DB.save(); closeSheet(); render(); }
+function fitSheet(id) { const x = D().fitgoals.find(g => g.id === id) || {title: '', type: 'Run', who: 'both', status: 'want', date: '', note: ''};
+  sheet(`<h2>${id ? 'Edit goal' : 'New goal or training'}</h2>${field('What', `<input id="ft" value="${esc(x.title)}" placeholder="e.g. Run a 10K, Try Muay Thai">`)}
+  <div class="grid2">${field('Type', xTypeSel('fty', x.type))}${field('Who', xWhoSel('fw', x.who))}</div>
+  <div class="grid2">${field('Status', `<select id="fs"><option value="want" ${x.status === 'want' ? 'selected' : ''}>Want to try</option><option value="doing" ${x.status === 'doing' ? 'selected' : ''}>Training for it</option></select>`)}${field('Target date (optional)', `<input type="date" id="fd" value="${x.date || ''}">`)}</div>
+  ${field('Notes', `<input id="fn" value="${esc(x.note || '')}" placeholder="e.g. Sign up for the KL Marathon 10K">`)}
+  <button class="btn block" onclick="saveFit('${id || ''}')">Save</button>${id ? `<button class="btn red block" style="margin-top:10px" onclick="confirmDel(()=>delFrom('fitgoals','${id}'))">Delete</button>` : ''}`); }
+function saveFit(id) { if (!val('ft')) return toast('What is the goal?'); const o = {title: val('ft'), type: val('fty'), who: val('fw'), status: val('fs'), date: val('fd'), note: val('fn')};
+  if (id) Object.assign(D().fitgoals.find(x => x.id === id), o); else { D().fitgoals.push({id: uid(), by: S().me, done: false, ...o}); act('🎯', `added the goal "${o.title}"`); }
+  DB.save(); closeSheet(); render(); }
+function fitDone(id) { const x = D().fitgoals.find(g => g.id === id); x.done = !x.done; x.doneOn = x.done ? todayISO() : ''; if (x.done) { act('🏆', `reached "${x.title}"`); toast('🏆 Well done!'); } DB.save(); render(); }
 
 /* ---------- start ---------- */
 render();
