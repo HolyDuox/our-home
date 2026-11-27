@@ -2,8 +2,11 @@ const { chromium } = require('playwright'); const { open } = require('./common')
 (async () => { const b = await chromium.launch(); const { p, errs } = await open(b); let f = 0; const ok = (c, m) => { console.log(c ? 'ok  ' : 'FAIL', m); if (!c) f++; };
   const chk = (w) => p.evaluate(w => Object.fromEntries(healthChecks(w).out.map(c => [c.k, c.v + ' ' + c.tx])), w);
   await p.evaluate(() => { S().nameA = 'Shaz'; S().nameB = 'Wife'; S().me = 'A'; go('more', 'Exercise'); st.xTab = 'body'; render(); });
-  ok(/Add your height, male \/ female, a waist measurement/.test(await p.evaluate(() => document.getElementById('app').innerText)), 'asks for height, sex and waist when missing');
-  await p.evaluate(() => bodyGoalSheet()); await p.fill('#g_height', '172'); await p.selectOption('#g_sex', 'M'); await p.evaluate(() => saveBodyGoal('A'));
+  await p.evaluate(() => { D().body = [{id: 'pre', who: 'A', date: todayISO(), weight: 70, waist: 85}]; render(); });
+  ok(/I need your height and male/.test(await p.evaluate(() => document.getElementById('app').innerText)), 'measurements entered but no height: asks on the card');
+  await p.fill('#hc_h', '50'); await p.selectOption('#hc_s', 'M'); await p.click('text=Save'); ok(!(await p.evaluate(() => (D().bodygoals.A || {}).height)), 'silly height rejected');
+  await p.fill('#hc_h', '172'); await p.click('button:has-text("Save")'); await p.waitForTimeout(100);
+  ok(/Waist ÷ height/.test(await p.evaluate(() => document.getElementById('app').innerText)) && !(await p.evaluate(() => document.getElementById('hc_h'))), 'after saving on the card the checks appear straight away');
   ok(await p.evaluate(() => D().bodygoals.A.sex) === 'M', 'sex saved in goals');
   const cases = [  // [weight, waist, hips, bodyfat] -> expectations
     [[65, 80, 95, 15], {'BMI': '22 Healthy', 'Waist ÷ height': '0.47 Healthy', 'Waist': '80 cm Healthy', 'Waist ÷ hips': '0.84 Healthy', 'Body fat': '15% Fit'}],

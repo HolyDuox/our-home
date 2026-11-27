@@ -561,7 +561,7 @@ function sheet(html) { document.getElementById('sheet').innerHTML = `<div class=
   hydrateImgs();
   const f = document.querySelector('.sheet input:not([type=date]):not([type=file]),.sheet textarea'); if (f && !f.value) setTimeout(() => f.focus(), 250); }
 function closeSheet() { document.getElementById('sheet').innerHTML = ''; if (SYNC.pendingRender) { SYNC.pendingRender = false; render(); } }
-const APP_VERSION = '2026.11.27-c';
+const APP_VERSION = '2026.11.27-d';
 const val = id => (document.getElementById(id)?.value ?? '').trim();
 // numbers typed with a comma: "5,5" -> 5.5 (decimal comma), "1,000" / "12,500.50" -> thousands
 const toNum = t => { t = String(t ?? '').trim().replace(/\s|RM/gi, ''); if (/^-?\d+,\d{1,2}$/.test(t) || /^-?\d+,\d{4,}$/.test(t)) t = t.replace(',', '.'); else t = t.replace(/,/g, ''); return parseFloat(t); };
@@ -2405,8 +2405,13 @@ function healthCard(w) { const {out, need} = healthChecks(w);
   return `<h2>Health check</h2><div class="card">${out.map(c => `<div class="row" style="justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line)">
     <div class="grow"><b>${c.k}</b>${c.best ? ' <span class="muted" style="font-size:12px">· best single check</span>' : ''}<div class="muted" style="font-size:12px;margin-top:2px">${esc(c.info)}</div></div>
     <div style="text-align:right;min-width:92px"><div style="font-weight:700">${esc(c.v)}</div><span class="pill ${c.lv}">${c.tx}</span></div></div>`).join('')}
-    ${need.length ? `<div class="muted" style="font-size:13px;margin-top:${out.length ? 10 : 0}px">Add ${need.join(', ')} ${need.includes('a waist measurement') && need.length === 1 ? 'in + New entry' : 'in 🎯 Set goals' + (need.includes('a waist measurement') ? ' and + New entry' : '')} to see ${out.length ? 'all' : 'your'} checks.</div>` : ''}
+    ${(() => { const g = (D().bodygoals || {})[w] || {}, miss = !bNum(g.height) || !g.sex;
+      return (miss ? `<div style="margin-top:${out.length ? 12 : 0}px"><div class="muted" style="font-size:13px;margin-bottom:8px">To run the checks I need your height and male / female:</div>
+      <div class="row" style="gap:8px"><input id="hc_h" inputmode="decimal" placeholder="Height cm" value="${bNum(g.height) || ''}" style="flex:1;min-width:0"><select id="hc_s" style="flex:1;min-width:0"><option value="">Male / female</option><option value="M" ${g.sex === 'M' ? 'selected' : ''}>Male</option><option value="F" ${g.sex === 'F' ? 'selected' : ''}>Female</option></select><button class="btn sm" onclick="hcSave('${w}')">Save</button></div></div>` : '')
+      + (!miss && need.includes('a waist measurement') ? `<div class="muted" style="font-size:13px;margin-top:${out.length ? 10 : 0}px">Add a waist measurement in + New entry to see the waist checks.</div>` : ''); })()}
     <details style="margin-top:10px"><summary class="muted" style="font-size:13px">Why not just BMI?</summary><p class="muted" style="font-size:13px;margin:6px 0 0">BMI only uses weight and height, so it can't tell muscle from fat. Asians also carry more risk at a lower BMI, so Malaysia uses stricter cut-offs (healthy up to 22.9, not 24.9). Waist ÷ height measures belly fat, which is linked more closely to diabetes and heart disease, and works the same for men and women. Measure your waist at the belly button, relaxed, after breathing out. These are general screening guides, not a diagnosis.</p></details></div>`; }
+function hcSave(w) { const h = numv('hc_h'), sx = val('hc_s'); if (!(h > 80 && h < 250)) return toast('Enter your height in cm, e.g. 165'); if (!sx) return toast('Choose male or female');
+  D().bodygoals = D().bodygoals || {}; D().bodygoals[w] = {...(D().bodygoals[w] || {}), height: Math.round(h * 10) / 10, sex: sx}; DB.save(); render(); toast('Health check updated'); }
 function bodySheet(id) { const w = st.bWho || S().me || 'A', x = (D().body || []).find(b => b.id === id) || {date: todayISO(), who: w, note: ''};
   sheet(`<h2>${id ? 'Edit entry' : 'New entry for ' + esc(whoName(x.who))}</h2><p class="muted" style="margin-top:-6px">Fill only what you measured.</p>
   ${field('Date', `<input type="date" id="bd" value="${x.date}">`)}
