@@ -249,7 +249,7 @@ const DEFAULT = {
   settings: { nameA: 'You', nameB: 'Partner', me: 'A', startDate: '', babyName: '', babyDob: '', theme: 'auto', zone: 'WLY01', reminders: {bills: true, events: true, tasks: true, vaccines: true, who: 'both'} },
   tasks: [], restock: [], restockCats: ['Pantry', 'Baby', 'Household'],
   events: [], bills: [], growth: [], vaccines: {}, milestones: {}, memories: [],
-  notes: [], recipes: [], wishes: [], goals: [], expenses: [], messages: [], babylog: [], sleepStart: null, settlements: [], activity: [], meals: {}, scheduled: [], cars: [], services: [], contacts: [], watch: [], activities: [], karaoke: [], routines: [], workouts: [], fitgoals: [], gold: [], investments: [], goldHist: []
+  notes: [], recipes: [], wishes: [], goals: [], expenses: [], messages: [], babylog: [], sleepStart: null, settlements: [], activity: [], meals: {}, scheduled: [], cars: [], services: [], contacts: [], watch: [], activities: [], karaoke: [], routines: [], workouts: [], fitgoals: [], body: [], bodygoals: {}, gold: [], investments: [], goldHist: []
 };
 const DB = {
   data: null,
@@ -561,7 +561,7 @@ function sheet(html) { document.getElementById('sheet').innerHTML = `<div class=
   hydrateImgs();
   const f = document.querySelector('.sheet input:not([type=date]):not([type=file]),.sheet textarea'); if (f && !f.value) setTimeout(() => f.focus(), 250); }
 function closeSheet() { document.getElementById('sheet').innerHTML = ''; if (SYNC.pendingRender) { SYNC.pendingRender = false; render(); } }
-const APP_VERSION = '2026.11.27-a';
+const APP_VERSION = '2026.11.27-b';
 const val = id => (document.getElementById(id)?.value ?? '').trim();
 // numbers typed with a comma: "5,5" -> 5.5 (decimal comma), "1,000" / "12,500.50" -> thousands
 const toNum = t => { t = String(t ?? '').trim().replace(/\s|RM/gi, ''); if (/^-?\d+,\d{1,2}$/.test(t) || /^-?\d+,\d{4,}$/.test(t)) t = t.replace(',', '.'); else t = t.replace(/,/g, ''); return parseFloat(t); };
@@ -2255,8 +2255,8 @@ function xStreak(w) { const logs = (D().workouts || []).filter(x => xFor(w, x));
 function vExercise() {
   ['routines', 'workouts', 'fitgoals'].forEach(k => { D()[k] = D()[k] || []; });
   const tab = st.xTab || 'week';
-  const tabs = `<div class="chips" style="margin-bottom:12px">${[['week', '📅 This week'], ['routines', '📋 Routines'], ['goals', '🎯 Goals']].map(([k, l]) => `<button class="chip ${tab === k ? 'on' : ''}" onclick="st.xTab='${k}';render()">${l}</button>`).join('')}</div>`;
-  return `<h1>Exercise 💪</h1><p class="sub">Our routines, workouts and the training we want to do.</p>${tabs}${tab === 'routines' ? vRoutines() : tab === 'goals' ? vFitGoals() : vXWeek()}`;
+  const tabs = `<div class="chips" style="margin-bottom:12px">${[['week', '📅 This week'], ['routines', '📋 Routines'], ['goals', '🎯 Goals'], ['body', '⚖️ Body']].map(([k, l]) => `<button class="chip ${tab === k ? 'on' : ''}" onclick="st.xTab='${k}';render()">${l}</button>`).join('')}</div>`;
+  return `<h1>Exercise 💪</h1><p class="sub">Our routines, workouts and the training we want to do.</p>${tabs}${tab === 'routines' ? vRoutines() : tab === 'goals' ? vFitGoals() : tab === 'body' ? vBody() : vXWeek()}`;
 }
 function vXWeek() {
   const t = todayISO(), ws = xWeekStart(t), days = Array.from({length: 7}, (_, i) => addDaysISO(ws, i)), logs = D().workouts;
@@ -2337,6 +2337,65 @@ function saveFit(id) { if (!val('ft')) return toast('What is the goal?'); const 
   if (id) Object.assign(D().fitgoals.find(x => x.id === id), o); else { D().fitgoals.push({id: uid(), by: S().me, done: false, ...o}); act('🎯', `added the goal "${o.title}"`); }
   DB.save(); closeSheet(); render(); }
 function fitDone(id) { const x = D().fitgoals.find(g => g.id === id); x.done = !x.done; x.doneOn = x.done ? todayISO() : ''; if (x.done) { act('🏆', `reached "${x.title}"`); toast('🏆 Well done!'); } DB.save(); render(); }
+
+
+/* ----- Exercise › Body: weight + body measurements, current vs goal ----- */
+const BODY = [['weight', 'Weight', 'kg'], ['bodyfat', 'Body fat', '%'], ['waist', 'Waist', 'cm'], ['chest', 'Chest', 'cm'], ['hips', 'Hips', 'cm'], ['arm', 'Arm', 'cm'], ['thigh', 'Thigh', 'cm'], ['neck', 'Neck', 'cm']];
+const bNum = v => { const n = Number(v); return n > 0 ? n : null; };
+const b1 = n => String(+Number(n).toFixed(1));
+function bodyLatest(w) { const out = {}; [...(D().body || [])].filter(x => x.who === w).sort((a, b) => a.date.localeCompare(b.date) || (a.at || 0) - (b.at || 0))
+  .forEach(x => BODY.forEach(([k]) => { if (bNum(x[k])) out[k] = {v: bNum(x[k]), date: x.date}; })); return out; }
+function bodyChart(pts, goal) {
+  if (pts.length < 2) return '';
+  const W = 320, H = 120, P = 8, vs = pts.map(p => p.v).concat(goal ? [goal] : []), lo = Math.min(...vs), hi = Math.max(...vs), rg = (hi - lo) || 1;
+  const t0 = new Date(pts[0].date).getTime(), t1 = new Date(pts.at(-1).date).getTime(), tr = (t1 - t0) || 1;
+  const X = d => P + (new Date(d).getTime() - t0) / tr * (W - 2 * P), Y = v => H - P - (v - lo) / rg * (H - 2 * P);
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;margin-top:8px" aria-label="Weight over time">
+    ${goal ? `<line x1="${P}" x2="${W - P}" y1="${Y(goal)}" y2="${Y(goal)}" stroke="var(--good)" stroke-dasharray="4 4" stroke-width="1.5"/><text x="${W - P}" y="${Y(goal) - 4}" text-anchor="end" font-size="10" fill="var(--good)">goal ${b1(goal)}</text>` : ''}
+    <polyline fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" points="${pts.map(p => `${X(p.date).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' ')}"/>
+    ${pts.map((p, i) => i === pts.length - 1 ? `<circle cx="${X(p.date)}" cy="${Y(p.v)}" r="4" fill="var(--accent)"/>` : '').join('')}</svg>
+    <div class="row muted" style="justify-content:space-between;font-size:11px"><span>${fmtDate(pts[0].date, {day: 'numeric', month: 'short', year: '2-digit'})}</span><span>${fmtDate(pts.at(-1).date, {day: 'numeric', month: 'short', year: '2-digit'})}</span></div>`;
+}
+function vBody() {
+  D().body = D().body || []; D().bodygoals = D().bodygoals || {};
+  const w = st.bWho || S().me || 'A', g = D().bodygoals[w] || {}, cur = bodyLatest(w), hist = D().body.filter(x => x.who === w).sort((a, b) => b.date.localeCompare(a.date) || (b.at || 0) - (a.at || 0));
+  const wpts = [...hist].reverse().filter(x => bNum(x.weight)).map(x => ({date: x.date, v: bNum(x.weight)})), first = wpts[0];
+  const gw = bNum(g.weight), cw = cur.weight && cur.weight.v, h = bNum(g.height), bmi = cw && h ? cw / Math.pow(h / 100, 2) : null;
+  const toGo = (k, c, gl) => { if (!c || !gl) return ''; const d = c - gl, u = BODY.find(b => b[0] === k)[2]; if (Math.abs(d) < 0.05) return '<span class="pill good">Reached 🎉</span>'; return `<span class="muted">${b1(Math.abs(d))} ${u} to ${d > 0 ? 'lose' : 'gain'}</span>`; };
+  const pct = first && gw && cw && first.v !== gw ? Math.max(0, Math.min(100, Math.round((first.v - cw) / (first.v - gw) * 100))) : null;
+  return `<div class="chips" style="margin-bottom:10px">${['A', 'B'].map(k => `<button class="chip sm ${w === k ? 'on' : ''}" onclick="st.bWho='${k}';render()">${esc(whoName(k))}</button>`).join('')}</div>
+  <div class="card"><div class="row" style="justify-content:space-between;align-items:flex-start"><div><div class="muted">Weight now</div><div class="serif" style="font-size:34px">${cw ? b1(cw) + ' kg' : '—'}</div>
+    <div class="muted" style="font-size:12px">${cur.weight ? 'on ' + fmtDate(cur.weight.date, {day: 'numeric', month: 'short'}) : 'Add your first entry'}${bmi ? ` · BMI ${b1(bmi)}` : ''}</div></div>
+    <div style="text-align:right"><div class="muted">Goal</div><div class="serif" style="font-size:24px;color:var(--good)">${gw ? b1(gw) + ' kg' : '—'}</div><div style="font-size:12px">${toGo('weight', cw, gw)}</div></div></div>
+    ${pct !== null ? `<div class="bar"><i style="width:${pct}%"></i></div><div class="muted" style="font-size:12px">${pct}% of the way from ${b1(first.v)} kg${g.date ? ` · goal date ${fmtDate(g.date, {day: 'numeric', month: 'short', year: 'numeric'})}` : ''}</div>` : ''}
+    ${bodyChart(wpts, gw)}</div>
+  <h2>Body measurements</h2>
+  <div class="list"><div class="item" style="padding:10px 18px"><div class="grow muted" style="font-size:12px">Measure</div><div class="muted" style="font-size:12px;width:72px;text-align:right">Current</div><div class="muted" style="font-size:12px;width:62px;text-align:right">Goal</div></div>
+    ${BODY.filter(([k]) => k !== 'weight').map(([k, l, u]) => { const c = cur[k] && cur[k].v, gl = bNum(g[k]); return `<div class="item" style="padding:12px 18px;align-items:center" onclick="bodyGoalSheet()"><div class="grow"><div class="t" style="font-size:15px">${l}</div>${c && gl ? `<div class="s" style="font-size:12px">${toGo(k, c, gl)}</div>` : ''}</div>
+      <b style="width:72px;text-align:right">${c ? b1(c) + ' ' + u : '—'}</b><span style="width:62px;text-align:right;color:var(--good)">${gl ? b1(gl) + ' ' + u : '—'}</span></div>`; }).join('')}</div>
+  <div class="row" style="margin-top:10px"><button class="btn soft grow" onclick="bodyGoalSheet()">🎯 Set goals</button><button class="btn grow" onclick="bodySheet()">+ New entry</button></div>
+  <h2>History</h2><div class="list">${hist.slice(0, 30).map(x => `<div class="item" onclick="bodySheet('${x.id}')"><div class="grow"><div class="t" style="font-size:15px">${fmtDate(x.date, {weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'})}</div>
+    <div class="s">${BODY.filter(([k]) => bNum(x[k])).map(([k, l, u]) => `${l} ${b1(x[k])} ${u}`).map(esc).join(' · ')}</div>${x.note ? `<div class="s">${esc(x.note)}</div>` : ''}</div></div>`).join('') || '<div class="empty">No entries yet. Weigh in and measure once a week, same time of day.</div>'}</div>
+  <p class="muted" style="font-size:12px;text-align:center">Shared with ${esc(whoName(w === 'A' ? 'B' : 'A'))} like the rest of the app.</p>`;
+}
+function bodySheet(id) { const w = st.bWho || S().me || 'A', x = (D().body || []).find(b => b.id === id) || {date: todayISO(), who: w, note: ''};
+  sheet(`<h2>${id ? 'Edit entry' : 'New entry for ' + esc(whoName(x.who))}</h2><p class="muted" style="margin-top:-6px">Fill only what you measured.</p>
+  ${field('Date', `<input type="date" id="bd" value="${x.date}">`)}
+  <div class="grid2">${BODY.map(([k, l, u]) => field(`${l} (${u})`, `<input id="b_${k}" inputmode="decimal" value="${bNum(x[k]) || ''}">`)).join('')}</div>
+  ${field('Notes', `<input id="bn" value="${esc(x.note || '')}" placeholder="e.g. after Raya 😅">`)}
+  <button class="btn block" onclick="saveBody('${id || ''}','${x.who}')">Save</button>${id ? `<button class="btn red block" style="margin-top:10px" onclick="confirmDel(()=>delFrom('body','${id}'))">Delete</button>` : ''}`); }
+function saveBody(id, who) { const o = {date: val('bd') || todayISO(), note: val('bn')}; let any = false;
+  BODY.forEach(([k]) => { const n = numv('b_' + k); o[k] = n > 0 && n < 1000 ? Math.round(n * 10) / 10 : null; if (o[k]) any = true; });
+  if (!any) return toast('Enter at least one number');
+  D().body = D().body || []; if (id) Object.assign(D().body.find(x => x.id === id), o); else D().body.push({id: uid(), who, at: Date.now(), ...o});
+  DB.save(); closeSheet(); render(); }
+function bodyGoalSheet() { const w = st.bWho || S().me || 'A', g = (D().bodygoals || {})[w] || {};
+  sheet(`<h2>Goals for ${esc(whoName(w))}</h2>
+  <div class="grid2">${field('Height (cm, for BMI)', `<input id="g_height" inputmode="decimal" value="${bNum(g.height) || ''}">`)}${field('Goal date (optional)', `<input type="date" id="g_date" value="${g.date || ''}">`)}</div>
+  <div class="grid2">${BODY.map(([k, l, u]) => field(`${l} goal (${u})`, `<input id="g_${k}" inputmode="decimal" value="${bNum(g[k]) || ''}">`)).join('')}</div>
+  <button class="btn block" onclick="saveBodyGoal('${w}')">Save goals</button>`); }
+function saveBodyGoal(w) { const o = {date: val('g_date')}; ['height', ...BODY.map(b => b[0])].forEach(k => { const n = numv('g_' + k); o[k] = n > 0 && n < 1000 ? Math.round(n * 10) / 10 : null; });
+  D().bodygoals = D().bodygoals || {}; D().bodygoals[w] = o; DB.save(); closeSheet(); render(); toast('Goals saved'); }
 
 /* ---------- start ---------- */
 render();

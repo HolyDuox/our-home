@@ -2,7 +2,7 @@
 const { chromium } = require('playwright'); const { open } = require('./common');
 const VIEWS = [['home'], ['tasks'], ['restock', "st.restockView='list'"], ['restock', "st.restockView='meals'"], ['restock', "st.restockView='recipes'"], ['calendar', "st.planView='cal'"], ['calendar', "st.planView='watch';st.watchStat='want'"], ['calendar', "st.planView='watch';st.watchStat='watching'"], ['calendar', "st.planView='act';st.actStat='todo'"], ['calendar', "st.planView='act';st.actStat='done'"], ['calendar', "st.planView='karaoke';st.kFilter='all'"], ['calendar', "st.planView='karaoke';st.kFilter='fav'"],
   ...['Overview','Expenses','Bills','Savings goals','Wealth','Wishlist'].map(m => ['money', `st.money='${m}'`]), ['money', "st.money='Bills';st.commitView='scheduled'"],
-  ...['Memories','Notes','Car','Contacts','Settings'].map(m => ['more', `st.more='${m}'`]), ...['week','routines','goals'].map(x => ['more', `st.more='Exercise';st.xTab='${x}'`]),
+  ...['Memories','Notes','Car','Contacts','Settings'].map(m => ['more', `st.more='${m}'`]), ...['week','routines','goals','body'].map(x => ['more', `st.more='Exercise';st.xTab='${x}'`]),
   ...['Today','Growth','Vaccines','Milestones','School','Chores'].map(t => ['kids', `st.babyTab='${t}'`])];
 (async () => {
   const b = await chromium.launch(); const out = [];
