@@ -58,3 +58,6 @@ Looked for things missed in earlier runs. Gaps found and fixed:
 2. Health check silently used old measurements; it now warns when a number it uses is over 60 days old.
 3. Waist ÷ hips had no "how far to go"; it now says how many cm off the waist reaches healthy.
 New test zz_review.js. Full suite re-run (28 scripts incl. sync ×3): 0 fails. Log: rerun-2026-11-27b.log
+
+## Repeating events (2026-11-28, v2026.11.28-a)
+Events can repeat weekly, monthly or yearly, with an optional end date and "skip this date only". Monthly on the 31st falls on the last day of short months; yearly 29 Feb falls on 28 Feb. New test zz_repeat.js (19 checks; first run caught a slow upcoming list with many repeats, fixed: 2059 ms -> 16 ms). Full suite: 0 fails.
