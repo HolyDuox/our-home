@@ -562,7 +562,7 @@ function sheet(html) { document.getElementById('sheet').innerHTML = `<div class=
   hydrateImgs();
   const f = document.querySelector('.sheet input:not([type=date]):not([type=file]),.sheet textarea'); if (f && !f.value) setTimeout(() => f.focus(), 250); }
 function closeSheet() { document.getElementById('sheet').innerHTML = ''; if (SYNC.pendingRender) { SYNC.pendingRender = false; render(); } }
-const APP_VERSION = '2026.11.28-a';
+const APP_VERSION = '2026.11.28-b';
 const val = id => (document.getElementById(id)?.value ?? '').trim();
 // numbers typed with a comma: "5,5" -> 5.5 (decimal comma), "1,000" / "12,500.50" -> thousands
 const toNum = t => { t = String(t ?? '').trim().replace(/\s|RM/gi, ''); if (/^-?\d+,\d{1,2}$/.test(t) || /^-?\d+,\d{4,}$/.test(t)) t = t.replace(',', '.'); else t = t.replace(/,/g, ''); return parseFloat(t); };
@@ -650,7 +650,7 @@ function evDates(from, to, list) { const out = [];
   });
   return out; }
 // next date an event happens on or after iso ('' if none)
-function evNext(e, iso) { const r = evDates(iso, addDaysISO(iso, 800), [e]); return r.length ? r[0].date : ''; }
+function evNext(e, iso) { const a = isISO(e.date) && e.date > iso ? e.date : iso, r = evDates(iso, addDaysISO(a, 800), [e]); return r.length ? r[0].date : ''; }
 function upcomingItems(nDays) {
   const t = todayISO(), end = new Date(); end.setDate(end.getDate() + nDays); const e = isoOf(end);
   const out = evDates(t, e).map(x => ({title: x.title, date: x.date, kind: x.rep ? 'Event · ' + EREP[x.rep].toLowerCase() : 'Event'}));
@@ -1522,7 +1522,7 @@ function remindSelect(cur, kind) {
 /* =================== WEEKLY MEAL PLANNER =================== */
 const SLOTS = [['Breakfast', '🌅'], ['Lunch', '☀️'], ['Dinner', '🌙'], ['Baby', '👶']];
 function weekStart(offset) { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + offset * 7); return d; }
-const isoOf = d => { const x = new Date(d); x.setMinutes(x.getMinutes() - x.getTimezoneOffset()); return x.toISOString().slice(0, 10); };
+const isoOf = d => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };   // local date, safe on daylight-saving days
 function mealLabel(m) { if (!m) return ''; if (m.recipe) { const r = D().recipes.find(x => x.id === m.recipe); return r ? r.name : (m.text || ''); } return m.text || ''; }
 function weekMeals(offset) { const ws = weekStart(offset), out = []; for (let i = 0; i < 7; i++) { const d = new Date(ws); d.setDate(d.getDate() + i); out.push(isoOf(d)); } return out; }
 function vMeals() {

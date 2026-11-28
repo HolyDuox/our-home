@@ -61,3 +61,7 @@ New test zz_review.js. Full suite re-run (28 scripts incl. sync ×3): 0 fails. L
 
 ## Repeating events (2026-11-28, v2026.11.28-a)
 Events can repeat weekly, monthly or yearly, with an optional end date and "skip this date only". Monthly on the 31st falls on the last day of short months; yearly 29 Feb falls on 28 Feb. New test zz_repeat.js (19 checks; first run caught a slow upcoming list with many repeats, fixed: 2059 ms -> 16 ms). Full suite: 0 fails.
+
+## Run 7: repeating events stress (2026-11-28, v2026.11.28-b)
+zz_repeat2.js: 8,940 repeat dates per time zone checked against an independent calculation (315 start dates incl. 29 Feb, 29/30/31 Jan, month ends; random windows, until dates, skips; every day of Feb-Mar in 2025-2028, 2032, 2100), in 6 time zones; 2100 not leap, 2000 leap; calendar UI checks for Feb/leap/month-end/new year; edit behaviour.
+Found + fixed: (1) a repeating event starting more than ~2 years ahead did not show in Upcoming; (2) shared date helper isoOf could give the wrong day on daylight-saving change days (not Malaysia, but e.g. New Zealand) - now uses local date parts. Full suite: 0 fails.
